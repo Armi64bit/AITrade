@@ -28,7 +28,7 @@ class BinanceTrader:
         self._data_loaded = False
         self._use_simulated = False
         self._sim_price = 60000.0
-        self._sim_balance = INITIAL_BALANCE
+        self._balance = INITIAL_BALANCE
         self._sim_time = time.time()
         self._active_strategy_id = None
         self.stop_after_trade = False
@@ -40,6 +40,7 @@ class BinanceTrader:
         self._optimizing = False
         self._activity_log: list[dict] = []
         self.ensemble = Ensemble()
+        self._paper_mode = True
 
     def _log_event(self, event_type: str, message: str):
         self._activity_log.append({
@@ -279,15 +280,13 @@ class BinanceTrader:
 
     async def _open_trade(self, signal, params):
         try:
-            if self._use_simulated:
-                balance = self._sim_balance
-                price = self._sim_price
-            else:
-                balance_data = await self.exchange.fetch_balance()
-                balance = balance_data.get(STABLE_COIN, {}).get("free", 0)
+            if not self._use_simulated:
                 ticker = await self.exchange.fetch_ticker(self.symbol)
                 price = ticker["last"]
+            else:
+                price = self._sim_price
 
+            balance = self._balance
             pct = params.get("position_size_pct", TRADE_CONFIG["position_size_pct"])
             amount_usdt = balance * pct
             if amount_usdt < 10:
@@ -295,14 +294,7 @@ class BinanceTrader:
 
             quantity = amount_usdt / price
             side = "buy" if signal == 1 else "sell"
-
-            if not self._use_simulated:
-                order = await self.exchange.create_order(
-                    self.symbol, "market", side, quantity
-                )
-
-            if self._use_simulated:
-                self._sim_balance -= amount_usdt
+            self._balance -= amount_usdt
 
             self.position = {
                 "side": side,
@@ -349,19 +341,12 @@ class BinanceTrader:
 
     async def _close_trade(self, exit_price, pnl_pct):
         try:
-            if not self._use_simulated:
-                side = "sell" if self.position["side"] == "buy" else "buy"
-                await self.exchange.create_order(
-                    self.symbol, "market", side, self.position["quantity"]
-                )
-
             db = SessionLocal()
             trade = db.query(Trade).filter(Trade.id == self._current_trade_db_id).first()
             if trade:
                 trade.exit_price = exit_price
                 trade.pnl = pnl_pct * self.position["quantity"] * self.position["entry_price"]
-                if self._use_simulated:
-                    self._sim_balance += trade.pnl + (self.position["quantity"] * self.position["entry_price"])
+                self._balance += trade.pnl + (self.position["quantity"] * self.position["entry_price"])
                 trade.pnl_pct = pnl_pct
                 trade.exit_time = datetime.now(timezone.utc)
                 trade.status = "closed"
@@ -396,13 +381,7 @@ class BinanceTrader:
         return STRATEGY_DEFAULTS
 
     async def get_status(self):
-        balance_usdt = self._sim_balance if self._use_simulated else 0
-        if not self._use_simulated:
-            try:
-                balance = await self.exchange.fetch_balance()
-                balance_usdt = balance.get(STABLE_COIN, {}).get("total", 0)
-            except Exception:
-                pass
+        balance_usdt = self._balance
         return {
             "running": self.running,
             "balance_usdt": balance_usdt,
@@ -412,6 +391,7 @@ class BinanceTrader:
             "stop_after_trade": self.stop_after_trade,
             "last_pair_switch_msg": self.last_pair_switch_msg,
             "use_simulated": self._use_simulated,
+            "paper_mode": self._paper_mode,
         }
 
     def get_indicators(self):
