@@ -28,9 +28,8 @@ def should_enter(df, params):
     if len(df) < max(params.get("ema_long", 25), params.get("rsi_period", 14)) + 5:
         return 0
     last = df.iloc[-1]
-    prev = df.iloc[-2]
-    if last["signal"] == 1 and prev["signal"] == 0:
+    if last["signal"] == 1:
         return 1
-    if last["signal"] == -1 and prev["signal"] == 0:
+    if last["signal"] == -1:
         return -1
     return 0

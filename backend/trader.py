@@ -98,14 +98,16 @@ class BinanceTrader:
                 if self.position:
                     await self._check_exit(df, params)
 
-                await asyncio.sleep(60)
+                await asyncio.sleep(30)
             except Exception as e:
                 print(f"Tick error: {e}")
                 await asyncio.sleep(10)
         await self.exchange.close()
 
     def _simulate_tick(self):
-        change = np.random.normal(0, self._sim_price * 0.001)
+        change = np.random.normal(0, self._sim_price * 0.005)
+        if np.random.random() < 0.15:
+            change *= -3
         self._sim_price *= (1 + change / self._sim_price)
         new_row = {
             "time": int(time.time() * 1000),

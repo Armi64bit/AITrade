@@ -15,12 +15,12 @@ STABLE_COIN = "USDT"
 INITIAL_BALANCE = 100.0
 
 TRADE_CONFIG = {
-    "position_size_pct": 0.03,
+    "position_size_pct": 0.15,
     "max_positions": 3,
-    "stop_loss_pct": 0.025,
-    "take_profit_pct": 0.05,
+    "stop_loss_pct": 0.03,
+    "take_profit_pct": 0.06,
     "max_drawdown_pct": 0.10,
-    "retrain_interval_trades": 50,
+    "retrain_interval_trades": 5,
 }
 
 STRATEGY_DEFAULTS = {
