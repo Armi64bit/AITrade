@@ -226,13 +226,15 @@ class BinanceTrader:
         change = np.random.normal(0, self._sim_price * 0.005)
         if np.random.random() < 0.15:
             change *= -3
+        open_price = self._sim_price
         self._sim_price *= (1 + change / self._sim_price)
+        close_price = self._sim_price
         new_row = {
             "time": int(time.time() * 1000),
-            "open": self._sim_price,
-            "high": self._sim_price * 1.002,
-            "low": self._sim_price * 0.998,
-            "close": self._sim_price,
+            "open": open_price,
+            "high": max(open_price, close_price) * 1.002,
+            "low": min(open_price, close_price) * 0.998,
+            "close": close_price,
             "volume": np.random.uniform(100, 1000),
         }
         self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)

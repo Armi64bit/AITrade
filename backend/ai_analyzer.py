@@ -1,7 +1,8 @@
+import json
 from config import OPENROUTER_API_KEY
 
 client = None
-MODEL = "openrouter/free"
+MODEL = "deepseek/deepseek-chat-v3-0324:free"
 
 if OPENROUTER_API_KEY:
     try:
@@ -84,15 +85,21 @@ async def generate_analysis(market_data: dict) -> str | None:
             ],
             max_tokens=200,
             temperature=0.7,
-            timeout=15,
+            timeout=30,
         )
         if not resp.choices:
+            print(f"OpenRouter: no choices, full response: {resp}")
             return "⚠️ AI returned no choices."
         choice = resp.choices[0]
         if not choice.message:
+            print(f"OpenRouter: no message in choice, finish_reason={choice.finish_reason}, full: {choice}")
             return "⚠️ AI returned empty message."
         content = choice.message.content
         if not content:
+            print(f"OpenRouter: empty content, finish_reason={choice.finish_reason}, full message: {choice.message}")
+            # Try to extract from other fields if available
+            if hasattr(choice.message, 'reasoning'):
+                return choice.message.reasoning.strip()
             return "⚠️ AI returned empty content."
         text = content.strip()
         # Strip reasoning traces: take only after the last  or "response" marker
