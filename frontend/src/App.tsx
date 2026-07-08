@@ -21,13 +21,25 @@ export default function App() {
   useEffect(() => { api.getStrategy().then(setStrategy); }, []);
   useEffect(() => { api.getPerformance().then(setPerf); }, []);
 
+  const addCandle = (price: number) => {
+    WS_CANDLES.push({ time: Date.now(), close: price });
+    if (WS_CANDLES.length > 200) WS_CANDLES.shift();
+    setCandles([...WS_CANDLES]);
+  };
+
   useEffect(() => {
-    if (wsStatus?.last_price) {
-      WS_CANDLES.push({ time: Date.now(), close: wsStatus.last_price });
-      if (WS_CANDLES.length > 200) WS_CANDLES.shift();
-      setCandles([...WS_CANDLES]);
-    }
+    if (wsStatus?.last_price) addCandle(wsStatus.last_price);
   }, [wsStatus?.last_price]);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const s = await api.getStatus();
+        if (s.last_price) addCandle(s.last_price);
+      } catch {}
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStart = async () => { await api.startBot(); };
   const handleStop = async () => { await api.stopBot(); };
