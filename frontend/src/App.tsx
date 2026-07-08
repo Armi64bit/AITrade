@@ -7,6 +7,7 @@ import { CandlestickChart } from "./components/CandlestickChart";
 import { SymbolSelector } from "./components/SymbolSelector";
 import { TradeLog } from "./components/TradeLog";
 import { AIInsights } from "./components/AIInsights";
+import { MarketNews } from "./components/MarketNews";
 import { RightSidebar } from "./components/RightSidebar";
 import { StopDialog } from "./components/StopDialog";
 import { fetchTndRate } from "./utils/currency";
@@ -140,6 +141,7 @@ export default function App() {
       </header>
 
       <Dashboard perf={perf} />
+      <MarketNews />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2 space-y-4">

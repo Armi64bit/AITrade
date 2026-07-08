@@ -1,7 +1,7 @@
 from config import OPENROUTER_API_KEY
 
 client = None
-MODEL = "deepseek/deepseek-chat-v3-0324:free"
+MODEL = "openrouter/free"
 
 if OPENROUTER_API_KEY:
     try:
@@ -27,6 +27,7 @@ def build_prompt(data: dict) -> str:
     consec_losses = data.get("consecutive_losses", 0)
     balance = data.get("balance")
     total_trades = data.get("total_trades", 0)
+    news = data.get("news", "")
 
     lines = [
         f"Current price: ${price:,.2f}" if price else "",
@@ -48,6 +49,8 @@ def build_prompt(data: dict) -> str:
         lines.append(f"Warning: {consec_losses} consecutive losses")
     if recent_pnl is not None:
         lines.append(f"Recent trade P&L: {recent_pnl:+.2f}%")
+    if news:
+        lines.append(f"\n--- Market News ---\n{news}")
 
     lines.append("\nWhat is happening right now and what to expect next?")
 
@@ -73,7 +76,7 @@ async def generate_analysis(market_data: dict) -> str | None:
 
     try:
         prompt = build_prompt(market_data)
-        response = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model=MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -83,14 +86,20 @@ async def generate_analysis(market_data: dict) -> str | None:
             temperature=0.7,
             timeout=15,
         )
-        content = response.choices[0].message.content
+        if not resp.choices:
+            return "⚠️ AI returned no choices."
+        choice = resp.choices[0]
+        if not choice.message:
+            return "⚠️ AI returned empty message."
+        content = choice.message.content
         if not content:
-            return "⚠️ AI returned empty response."
+            return "⚠️ AI returned empty content."
         text = content.strip()
-        # Strip any thinking/reasoning block
-        if " think" in text:
-            parts = text.split("\n")
-            text = "\n".join(p for p in parts if not p.strip().startswith("Okay") and not p.strip().startswith("Let me") and not p.strip().startswith("The user"))
+        # Strip reasoning traces: take only after the last  or "response" marker
+        for marker in [" response", " response", "Summary:", "summary:"]:
+            if marker in text:
+                parts = text.split(marker)
+                text = parts[-1].strip()
         _analysis_cache["data_hash"] = h
         _analysis_cache["result"] = text
         return text

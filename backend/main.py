@@ -13,6 +13,7 @@ from trader import BinanceTrader
 from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
 from ai_analyzer import generate_analysis
+from news_fetcher import fetch_news
 import pandas as pd
 
 
@@ -34,6 +35,19 @@ def _fetch_tnd_rate():
     except Exception as e:
         print(f"TND rate fetch error: {e}")
     return _tnd_rate
+
+
+def _format_news_for_ai() -> str:
+    try:
+        items = fetch_news()
+        if not items:
+            return ""
+        lines = ["Recent crypto news:"]
+        for n in items:
+            lines.append(f"- {n['title']} ({n['source']})")
+        return "\n".join(lines)
+    except Exception:
+        return ""
 
 
 trader = None
@@ -428,6 +442,7 @@ async def ai_deep_analysis():
             "win_rate": wins / total if total > 0 else 0,
             "recent_pnl": recent_pnl,
             "consecutive_losses": status.get("consecutive_losses", 0),
+            "news": _format_news_for_ai(),
         }
 
         analysis = await generate_analysis(market_data)
@@ -440,6 +455,11 @@ async def ai_deep_analysis():
 @app.get("/api/tnd-rate")
 async def get_tnd_rate():
     return {"rate": _fetch_tnd_rate()}
+
+
+@app.get("/api/news")
+async def get_news():
+    return {"news": fetch_news()}
 
 
 @app.get("/api/activity-log")
