@@ -95,19 +95,25 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
       </div>
 
       {/* Deep AI analysis */}
-      {deepAnalysis && (
-        <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border border-purple-500/20">
-          <div className="text-xs text-purple-400 uppercase tracking-wider mb-1">AI Market Summary</div>
-          <div className="text-sm text-slate-200">{deepAnalysis}</div>
+      <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border border-purple-500/20">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-xs text-purple-400 uppercase tracking-wider">AI Market Summary</div>
           <button
             onClick={fetchDeep}
             disabled={deepLoading}
-            className="mt-2 text-xs text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition-colors cursor-pointer"
+            className="text-xs text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition-colors cursor-pointer"
           >
-            {deepLoading ? "Thinking..." : "Refresh analysis"}
+            {deepLoading ? "Thinking..." : deepAnalysis ? "Refresh" : "Generate"}
           </button>
         </div>
-      )}
+        {deepAnalysis ? (
+          <div className="text-sm text-slate-200">{deepAnalysis}</div>
+        ) : (
+          <div className="text-xs text-slate-500">
+            {deepLoading ? "Asking AI..." : "Click Generate to get a real AI market summary."}
+          </div>
+        )}
+      </div>
 
       {/* Messages */}
       <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
