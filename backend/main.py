@@ -490,6 +490,14 @@ async def get_activity_log():
     return trader._activity_log[-100:]
 
 
+@app.get("/api/strategy-votes")
+async def get_strategy_votes():
+    if not trader:
+        return {"votes": [], "tracking": {}}
+    votes = [{"name": v.name, "signal": v.signal, "confidence": v.confidence, "weight": round(v.weight, 2)} for v in trader.ensemble.get_last_votes()]
+    return {"votes": votes, "tracking": trader.ensemble.get_tracking()}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()

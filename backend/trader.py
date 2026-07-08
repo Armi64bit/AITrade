@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
 from models import SessionLocal, Trade, StrategyState, Setting
-from strategy import compute_indicators, should_enter
+from strategies import Ensemble
 from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE, SYMBOLS
 from concurrent.futures import ThreadPoolExecutor
 
@@ -39,6 +39,7 @@ class BinanceTrader:
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._optimizing = False
         self._activity_log: list[dict] = []
+        self.ensemble = Ensemble()
 
     def _log_event(self, event_type: str, message: str):
         self._activity_log.append({
@@ -230,15 +231,13 @@ class BinanceTrader:
                 else:
                     await self._real_tick()
 
-                params = await self._get_active_params()
-                df = compute_indicators(self.df, params)
-                signal = should_enter(df, params)
+                signal, score = self.ensemble.aggregate(self.df)
 
                 if signal != 0 and self.position is None:
-                    await self._open_trade(signal, params)
+                    await self._open_trade(signal, self.ensemble.weights)
 
                 if self.position:
-                    await self._check_exit(df, params)
+                    await self._check_exit(self.df)
 
                 await asyncio.sleep(30)
             except Exception as e:
@@ -331,17 +330,17 @@ class BinanceTrader:
         except Exception as e:
             print(f"Open trade error: {e}")
 
-    async def _check_exit(self, df, params):
+    async def _check_exit(self, df):
         current_price = df["close"].iloc[-1]
         entry = self.position["entry_price"]
-        sl = params.get("stop_loss_pct", TRADE_CONFIG["stop_loss_pct"])
-        tp = params.get("take_profit_pct", TRADE_CONFIG["take_profit_pct"])
+        sl = TRADE_CONFIG["stop_loss_pct"]
+        tp = TRADE_CONFIG["take_profit_pct"]
 
         pnl_pct = (current_price - entry) / entry
         if self.position["side"] == "sell":
             pnl_pct = -pnl_pct
 
-        signal = should_enter(df, params)
+        signal, _ = self.ensemble.aggregate(df)
         exit_signal = (self.position["side"] == "buy" and signal == -1) or \
                       (self.position["side"] == "sell" and signal == 1)
 
@@ -368,6 +367,8 @@ class BinanceTrader:
                 trade.status = "closed"
                 db.commit()
             db.close()
+
+            self.ensemble.record_trade(pnl_pct)
 
             if pnl_pct < 0:
                 self.consecutive_losses += 1
@@ -415,9 +416,19 @@ class BinanceTrader:
     def get_indicators(self):
         if len(self.df) < 2:
             return {}
+        df = self.df
+        ema_s = df["close"].ewm(span=7, adjust=False).mean()
+        ema_l = df["close"].ewm(span=25, adjust=False).mean()
+        delta = df["close"].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_g = gain.rolling(14).mean()
+        avg_l = loss.rolling(14).mean()
+        rs = avg_g / avg_l.replace(0, np.nan)
+        rsi = 100 - (100 / (1 + rs))
         return {
-            "ema_short": float(self.df["ema_short"].iloc[-1]) if "ema_short" in self.df else None,
-            "ema_long": float(self.df["ema_long"].iloc[-1]) if "ema_long" in self.df else None,
-            "rsi": float(self.df["rsi"].iloc[-1]) if "rsi" in self.df else None,
-            "last_price": float(self.df["close"].iloc[-1]),
+            "ema_short": float(ema_s.iloc[-1]),
+            "ema_long": float(ema_l.iloc[-1]),
+            "rsi": float(rsi.iloc[-1]),
+            "last_price": float(df["close"].iloc[-1]),
         }

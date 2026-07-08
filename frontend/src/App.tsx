@@ -8,6 +8,7 @@ import { SymbolSelector } from "./components/SymbolSelector";
 import { TradeLog } from "./components/TradeLog";
 import { AIInsights } from "./components/AIInsights";
 import { MarketNews } from "./components/MarketNews";
+import { StrategyVotes } from "./components/StrategyVotes";
 import { RightSidebar } from "./components/RightSidebar";
 import { StopDialog } from "./components/StopDialog";
 import { fetchTndRate } from "./utils/currency";
@@ -149,6 +150,7 @@ export default function App() {
         <div className="lg:col-span-2 space-y-4">
           <CandlestickChart data={candles} />
           <AIInsights onOptimize={handleOptimize} />
+          <StrategyVotes />
         </div>
         <div className="space-y-4">
           <RightSidebar

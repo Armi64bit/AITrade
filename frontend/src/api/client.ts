@@ -88,4 +88,5 @@ export const api = {
   getTndRate: () => get<{ rate: number }>("/tnd-rate"),
   getActivityLog: () => get<{ time: string; type: string; message: string }[]>("/activity-log"),
   getNews: () => get<{ news: { title: string; source: string; url: string; published_at: number; summary: string }[] }>("/news"),
+  getStrategyVotes: () => get<{ votes: { name: string; signal: number; confidence: number; weight: number }[]; tracking: Record<string, { wins: number; losses: number; trades: number }> }>("/strategy-votes"),
 };
