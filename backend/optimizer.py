@@ -10,6 +10,8 @@ def backtest_strategy(df, params):
     rsi_period = int(params["rsi_period"])
     ob = params["rsi_overbought"]
     os = params["rsi_oversold"]
+    sl = params.get("stop_loss_pct", 0.025)
+    tp = params.get("take_profit_pct", 0.05)
 
     df = df.copy()
     df["ema_short"] = df["close"].ewm(span=short, adjust=False).mean()
@@ -29,37 +31,86 @@ def backtest_strategy(df, params):
 
     position = 0
     entry_price = 0
+    entry_idx = 0
     returns = []
-    for i in range(1, len(df)):
-        if position == 0 and df["signal"].iloc[i] == 1 and df["signal"].iloc[i - 1] == 0:
-            position = 1
-            entry_price = df["close"].iloc[i]
-        elif position == 1 and df["signal"].iloc[i] == -1 and df["signal"].iloc[i - 1] == 0:
-            position = 0
-            ret = (df["close"].iloc[i] - entry_price) / entry_price
-            returns.append(ret)
-        elif position == 1:
-            ret = (df["close"].iloc[i] - entry_price) / entry_price
-            if ret <= -params.get("stop_loss_pct", 0.025):
-                returns.append(ret)
-                position = 0
-            elif ret >= params.get("take_profit_pct", 0.05):
-                returns.append(ret)
-                position = 0
+    max_dd = 0
+    peak = 1.0
+    equity = 1.0
 
-    if len(returns) < 3:
+    for i in range(long + 5, len(df)):
+        current_signal = df["signal"].iloc[i]
+        prev_signal = df["signal"].iloc[i - 1]
+
+        if position == 0:
+            if current_signal == 1 and prev_signal != 1:
+                position = 1
+                entry_price = df["close"].iloc[i]
+                entry_idx = i
+            elif current_signal == -1 and prev_signal != -1:
+                position = -1
+                entry_price = df["close"].iloc[i]
+                entry_idx = i
+        else:
+            price = df["close"].iloc[i]
+            if position == 1:
+                ret = (price - entry_price) / entry_price
+                exit_now = False
+                if ret <= -sl:
+                    exit_now = True
+                elif ret >= tp:
+                    exit_now = True
+                elif current_signal == -1 and prev_signal != -1:
+                    exit_now = True
+                elif i - entry_idx > 48:
+                    exit_now = True
+                if exit_now:
+                    returns.append(ret)
+                    equity *= (1 + ret)
+                    peak = max(peak, equity)
+                    dd = (peak - equity) / peak
+                    max_dd = max(max_dd, dd)
+                    position = 0
+            elif position == -1:
+                ret = (entry_price - price) / entry_price
+                exit_now = False
+                if ret <= -sl:
+                    exit_now = True
+                elif ret >= tp:
+                    exit_now = True
+                elif current_signal == 1 and prev_signal != 1:
+                    exit_now = True
+                elif i - entry_idx > 48:
+                    exit_now = True
+                if exit_now:
+                    returns.append(ret)
+                    equity *= (1 + ret)
+                    peak = max(peak, equity)
+                    dd = (peak - equity) / peak
+                    max_dd = max(max_dd, dd)
+                    position = 0
+
+    if len(returns) < 5:
         return -999
 
     mean_ret = np.mean(returns)
     std_ret = np.std(returns)
     if std_ret == 0:
         return -999
+
     sharpe = mean_ret / std_ret * np.sqrt(365)
+
+    if max_dd > 0.3:
+        sharpe *= (1 - max_dd)
+
     return sharpe
 
 
-def run_optimization(df, n_trials=100):
-    study = optuna.create_study(direction="maximize")
+def run_optimization(df, n_trials=500):
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner(n_startup_trials=10, n_warmup_steps=5),
+    )
 
     def objective(trial):
         params = {
@@ -68,12 +119,20 @@ def run_optimization(df, n_trials=100):
             "rsi_period": trial.suggest_int("rsi_period", 5, 30),
             "rsi_overbought": trial.suggest_int("rsi_overbought", 60, 85),
             "rsi_oversold": trial.suggest_int("rsi_oversold", 15, 40),
-            "stop_loss_pct": trial.suggest_float("stop_loss_pct", 0.01, 0.05),
-            "take_profit_pct": trial.suggest_float("take_profit_pct", 0.02, 0.10),
+            "stop_loss_pct": trial.suggest_float("stop_loss_pct", 0.01, 0.06),
+            "take_profit_pct": trial.suggest_float("take_profit_pct", 0.015, 0.12),
         }
-        return backtest_strategy(df, params)
+        result = backtest_strategy(df, params)
+        if result <= -999:
+            raise optuna.TrialPruned()
+        return result
 
-    study.optimize(objective, n_trials=n_trials)
+    study.optimize(objective, n_trials=n_trials, timeout=120)
+
+    if len(study.trials) == 0 or study.best_value <= -999:
+        from config import STRATEGY_DEFAULTS
+        return STRATEGY_DEFAULTS, 0.0
+
     best = study.best_params
 
     db = SessionLocal()

@@ -103,7 +103,7 @@ async def get_strategy():
 
 
 class OptimizeRequest(BaseModel):
-    n_trials: int = 100
+    n_trials: int = 500
 
 
 @app.post("/api/optimize")
@@ -116,7 +116,8 @@ async def optimize(req: OptimizeRequest):
     trader.stop()
     await asyncio.sleep(1)
     try:
-        params, sharpe = run_optimization(df, n_trials=req.n_trials)
+        loop = asyncio.get_event_loop()
+        params, sharpe = await loop.run_in_executor(None, run_optimization, df, req.n_trials)
         return {"params": params, "sharpe_ratio": sharpe}
     finally:
         await trader.start()

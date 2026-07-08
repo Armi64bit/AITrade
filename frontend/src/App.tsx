@@ -66,7 +66,7 @@ export default function App() {
   const handleOptimize = async () => {
     setOptimizing(true);
     try {
-      const result = await api.optimize(100);
+      const result = await api.optimize(500);
       setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
     } catch {}
     setOptimizing(false);

@@ -78,7 +78,12 @@ export function StrategyPanel({ strategy, onOptimize, optimizing }: {
           disabled={optimizing}
           className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg transition-colors cursor-pointer"
         >
-          {optimizing ? "Optimizing..." : "Auto-Optimize"}
+          {optimizing ? (
+            <span className="flex items-center gap-1">
+              <span className="w-3 h-3 border-2 border-purple-300 border-t-transparent rounded-full animate-spin" />
+              Optimizing (500 trials)...
+            </span>
+          ) : "Auto-Optimize"}
         </button>
       </div>
 
