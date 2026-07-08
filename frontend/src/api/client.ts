@@ -1,4 +1,4 @@
-const BASE = "/api";
+const BASE = "https://aitrade-production-ecba.up.railway.app/api";
 
 export interface BotStatus {
   running: boolean;
