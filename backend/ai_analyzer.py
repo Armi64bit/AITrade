@@ -1,4 +1,5 @@
 import json
+import re
 from config import OPENROUTER_API_KEY
 
 client = None
@@ -14,7 +15,16 @@ if OPENROUTER_API_KEY:
     except Exception:
         client = None
 
-SYSTEM_PROMPT = """You are a crypto trading assistant. Output ONLY a 2-3 sentence plain-English market summary. Never explain what you're doing. Never use markdown. Never use first-person. Just state the facts and what to expect. Be direct."""
+SYSTEM_PROMPT = """You are a crypto trading signal generator. Analyze the market data and output a trading signal as valid JSON only. No markdown, no explanation, no thinking. Just the JSON object.
+
+{
+  "signal": "BUY" or "SELL" or "HOLD" or "WAIT",
+  "entry": "entry price or range string",
+  "stop_loss": "stop loss price string",
+  "take_profit": "take profit target string",
+  "confidence": 0-100,
+  "reasoning": "1-2 sentence explanation of the setup"
+}"""
 
 
 def build_prompt(data: dict) -> str:
@@ -53,12 +63,21 @@ def build_prompt(data: dict) -> str:
     if news:
         lines.append(f"\n--- Market News ---\n{news}")
 
-    lines.append("\nWhat is happening right now and what to expect next?")
+    lines.append("\nBased on this data, what is your trading signal? Output JSON only.")
 
     return "\n".join(line for line in lines if line)
 
 
 _analysis_cache = {"data_hash": None, "result": None}
+
+DEFAULT_SIGNAL = {
+    "signal": "WAIT",
+    "entry": "—",
+    "stop_loss": "—",
+    "take_profit": "—",
+    "confidence": 0,
+    "reasoning": "No signal available.",
+}
 
 
 def _hash(data: dict) -> str:
@@ -67,9 +86,50 @@ def _hash(data: dict) -> str:
     return f"{(data.get('price') or 0):.0f}_{(data.get('rsi') or 0):.0f}_{pos_str}"
 
 
-async def generate_analysis(market_data: dict) -> str | None:
+def _parse_signal(text: str) -> dict:
+    # Try to extract JSON from the response
+    try:
+        # Find JSON block - between { and }
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            data = json.loads(match.group())
+            return {
+                "signal": str(data.get("signal", "WAIT")).upper(),
+                "entry": str(data.get("entry", "—")),
+                "stop_loss": str(data.get("stop_loss", "—")),
+                "take_profit": str(data.get("take_profit", "—")),
+                "confidence": min(max(int(data.get("confidence", 0)), 0), 100),
+                "reasoning": str(data.get("reasoning", "")),
+            }
+    except Exception:
+        pass
+    # Fallback: try to parse labeled lines
+    result = dict(DEFAULT_SIGNAL)
+    for line in text.split("\n"):
+        line = line.strip()
+        for key in ("signal", "entry", "stop_loss", "take_profit", "confidence", "reasoning"):
+            if line.lower().startswith(key.lower().replace("_", "")) or line.lower().startswith(key.lower()):
+                val = line.split(":", 1)[-1].strip() if ":" in line else line.split(" ", 1)[-1].strip()
+                if key == "signal":
+                    for s in ("BUY", "SELL", "HOLD", "WAIT"):
+                        if s in val.upper():
+                            result[key] = s
+                            break
+                elif key == "confidence":
+                    match = re.search(r"\d+", val)
+                    if match:
+                        result[key] = min(max(int(match.group()), 0), 100)
+                else:
+                    result[key] = val
+    if result != DEFAULT_SIGNAL:
+        return result
+    # Last resort: use raw text as reasoning
+    return {**DEFAULT_SIGNAL, "reasoning": text[:200]}
+
+
+async def generate_analysis(market_data: dict) -> dict:
     if not client:
-        return "⚠️ OpenRouter API key not configured. Set OPENROUTER_API_KEY in Railway env vars."
+        return {**DEFAULT_SIGNAL, "reasoning": "⚠️ OpenRouter API key not configured."}
 
     h = _hash(market_data)
     if _analysis_cache["data_hash"] == h and _analysis_cache["result"]:
@@ -83,33 +143,23 @@ async def generate_analysis(market_data: dict) -> str | None:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
-            max_tokens=200,
+            max_tokens=300,
             temperature=0.7,
             timeout=30,
         )
         if not resp.choices:
-            print(f"OpenRouter: no choices, full response: {resp}")
-            return "⚠️ AI returned no choices."
+            return {**DEFAULT_SIGNAL, "reasoning": "⚠️ AI returned no choices."}
         choice = resp.choices[0]
         if not choice.message:
-            print(f"OpenRouter: no message in choice, finish_reason={choice.finish_reason}, full: {choice}")
-            return "⚠️ AI returned empty message."
+            return {**DEFAULT_SIGNAL, "reasoning": "⚠️ AI returned empty message."}
         content = choice.message.content
         if not content:
-            print(f"OpenRouter: empty content, finish_reason={choice.finish_reason}, full message: {choice.message}")
-            # Try to extract from other fields if available
-            if hasattr(choice.message, 'reasoning'):
-                return choice.message.reasoning.strip()
-            return "⚠️ AI returned empty content."
+            return {**DEFAULT_SIGNAL, "reasoning": "⚠️ AI returned empty content."}
         text = content.strip()
-        # Strip reasoning traces: take only after the last  or "response" marker
-        for marker in [" response", " response", "Summary:", "summary:"]:
-            if marker in text:
-                parts = text.split(marker)
-                text = parts[-1].strip()
+        signal = _parse_signal(text)
         _analysis_cache["data_hash"] = h
-        _analysis_cache["result"] = text
-        return text
+        _analysis_cache["result"] = signal
+        return signal
     except Exception as e:
         print(f"OpenRouter error: {e}")
-        return f"⚠️ AI error: {e}"
+        return {**DEFAULT_SIGNAL, "reasoning": f"⚠️ AI error: {e}"}

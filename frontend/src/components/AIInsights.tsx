@@ -11,11 +11,20 @@ interface AIResponse {
   current_pnl: number | null;
 }
 
+interface Signal {
+  signal: string;
+  entry: string;
+  stop_loss: string;
+  take_profit: string;
+  confidence: number;
+  reasoning: string;
+}
+
 export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
   const [data, setData] = useState<AIResponse | null>(null);
-  const [deepAnalysis, setDeepAnalysis] = useState<string | null>(null);
+  const [signal, setSignal] = useState<Signal | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deepLoading, setDeepLoading] = useState(false);
+  const [sigLoading, setSigLoading] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -30,23 +39,23 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
     return () => clearInterval(id);
   }, []);
 
-  const fetchDeep = useCallback(async () => {
-    setDeepLoading(true);
+  const fetchSignal = useCallback(async () => {
+    setSigLoading(true);
     try {
       const d = await api.getDeepAnalysis();
-      setDeepAnalysis(d.analysis ?? "⚠️ No analysis returned (empty response).");
+      setSignal(d);
     } catch {
-      setDeepAnalysis("⚠️ Failed to fetch analysis.");
+      setSignal(null);
     }
-    setDeepLoading(false);
+    setSigLoading(false);
   }, []);
 
-  // Auto-fetch deep analysis on mount and every 30s
+  // Auto-fetch signal on mount and every 30s
   useEffect(() => {
-    fetchDeep();
-    const id = setInterval(fetchDeep, 30000);
+    fetchSignal();
+    const id = setInterval(fetchSignal, 30000);
     return () => clearInterval(id);
-  }, [fetchDeep]);
+  }, [fetchSignal]);
 
   if (loading && !data) {
     return (
@@ -98,24 +107,77 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
         )}
       </div>
 
-      {/* Deep AI analysis */}
-      <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border border-purple-500/20">
-        <div className="flex items-center justify-between mb-1">
-          <div className="text-xs text-purple-400 uppercase tracking-wider">AI Market Summary</div>
+      {/* AI Trading Signal */}
+      <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-slate-800 to-slate-900 border border-slate-700">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-slate-400 uppercase tracking-wider">Signal</div>
+            {signal && (
+              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                signal.signal === "BUY" ? "bg-emerald-500/20 text-emerald-400" :
+                signal.signal === "SELL" ? "bg-red-500/20 text-red-400" :
+                signal.signal === "HOLD" ? "bg-yellow-500/20 text-yellow-400" :
+                "bg-slate-600/20 text-slate-400"
+              }`}>
+                {signal.signal}
+              </span>
+            )}
+          </div>
           <button
-            onClick={fetchDeep}
-            disabled={deepLoading}
-            className="text-xs text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition-colors cursor-pointer"
+            onClick={fetchSignal}
+            disabled={sigLoading}
+            className="text-xs text-slate-500 hover:text-slate-300 disabled:text-slate-700 transition-colors cursor-pointer"
           >
-            {deepLoading ? "⟳" : "↻"}
+            {sigLoading ? "⟳" : "↻"}
           </button>
         </div>
-        {deepAnalysis ? (
-          <div className={`text-sm ${deepAnalysis.includes("⚠️") ? "text-yellow-300" : "text-slate-200"}`}>{deepAnalysis}</div>
-        ) : (
-          <div className="text-xs text-slate-500">
-            {deepLoading ? "Asking AI..." : "Click Generate to get a real AI market summary."}
+
+        {sigLoading && !signal ? (
+          <div className="text-xs text-slate-500 animate-pulse">Analyzing market...</div>
+        ) : signal ? (
+          <div className="space-y-2">
+            {/* Confidence bar */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500">Confidence</span>
+              <div className="flex-1 h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    signal.confidence >= 70 ? "bg-emerald-500" :
+                    signal.confidence >= 40 ? "bg-yellow-500" :
+                    "bg-red-500"
+                  }`}
+                  style={{ width: `${signal.confidence}%` }}
+                />
+              </div>
+              <span className="text-slate-300 font-mono w-8 text-right">{signal.confidence}%</span>
+            </div>
+
+            {/* Entry / SL / TP grid */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="p-1.5 rounded bg-slate-800/80">
+                <div className="text-slate-500">Entry</div>
+                <div className="text-slate-200 font-mono">{signal.entry}</div>
+              </div>
+              <div className="p-1.5 rounded bg-slate-800/80">
+                <div className="text-red-400">Stop Loss</div>
+                <div className="text-slate-200 font-mono">{signal.stop_loss}</div>
+              </div>
+              <div className="p-1.5 rounded bg-slate-800/80">
+                <div className="text-emerald-400">Take Profit</div>
+                <div className="text-slate-200 font-mono">{signal.take_profit}</div>
+              </div>
+            </div>
+
+            {/* Reasoning */}
+            {signal.reasoning && !signal.reasoning.includes("⚠️") && (
+              <div className="text-xs text-slate-400 leading-relaxed">{signal.reasoning}</div>
+            )}
+            {signal.reasoning && signal.reasoning.includes("⚠️") && (
+              <div className="text-xs text-yellow-300">{signal.reasoning}</div>
+            )}
           </div>
+        ) : (
+          <div className="text-xs text-slate-500">Click refresh to get a signal.</div>
         )}
       </div>
 

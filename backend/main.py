@@ -446,7 +446,7 @@ async def ai_deep_analysis():
         }
 
         analysis = await generate_analysis(market_data)
-        return {"analysis": analysis}
+        return analysis
     except Exception as e:
         import traceback; traceback.print_exc()
         return {"analysis": f"⚠️ Exception: {e}"}
