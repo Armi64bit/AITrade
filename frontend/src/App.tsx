@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api, type BotStatus, type Trade, type StrategyInfo, type Performance } from "./api/client";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { useTradeSounds } from "./hooks/useTradeSounds";
 import { Dashboard } from "./components/Dashboard";
 import { CandlestickChart } from "./components/CandlestickChart";
 import { SymbolSelector } from "./components/SymbolSelector";
@@ -19,32 +20,35 @@ export default function App() {
   const [symbol, setSymbol] = useState("BTC/USDT");
   const [changingSymbol, setChangingSymbol] = useState(false);
 
+  useTradeSounds(trades);
+
   const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
   useEffect(() => { api.getStrategy().then(setStrategy); }, []);
 
-  const fetchCandles = async () => {
+  const fetchCandles = useCallback(async () => {
     try {
       const c = await api.getCandles();
       if (c.length > 0) setCandles(c);
     } catch {}
-  };
+  }, []);
 
-  const poll = async () => {
+  const pollAll = useCallback(async () => {
     try {
-      const [s, p] = await Promise.all([api.getStatus(), api.getPerformance()]);
+      const [s, p, t] = await Promise.all([api.getStatus(), api.getPerformance(), api.getTrades()]);
       setRestStatus(s);
       setPerf(p);
+      setTrades(t);
     } catch {}
-  };
+  }, []);
 
   useEffect(() => {
     fetchCandles();
-    poll();
-    const id = setInterval(() => { poll(); fetchCandles(); }, 5000);
+    pollAll();
+    const id = setInterval(pollAll, 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [fetchCandles, pollAll]);
 
   const handleSymbolChange = async (s: string) => {
     setChangingSymbol(true);
@@ -60,17 +64,22 @@ export default function App() {
   const handleStop = async () => { await api.stopBot(); };
   const handleOptimize = async () => {
     setOptimizing(true);
-    const result = await api.optimize(100);
-    setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
+    try {
+      const result = await api.optimize(100);
+      setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
+    } catch {}
     setOptimizing(false);
   };
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
       <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-100">AiTrader</h1>
-          <p className="text-sm text-slate-500 mt-1">Self-improving AI trading bot</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">AI</div>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-100">AiTrader</h1>
+            <p className="text-xs text-slate-500">Self-improving AI trading bot</p>
+          </div>
         </div>
         <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
       </header>
