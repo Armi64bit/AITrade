@@ -97,9 +97,13 @@ async def get_trades(limit: int = 50):
 async def get_strategy():
     db = SessionLocal()
     state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
-    db.close()
     if state:
-        return {"params": state.params, "sharpe_ratio": state.sharpe_ratio, "total_trades": state.total_trades, "wins": state.wins, "losses": state.losses}
+        closed = db.query(Trade).filter(Trade.status == "closed", Trade.strategy_id == state.id).all()
+        wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
+        losses = sum(1 for t in closed if t.pnl and t.pnl <= 0)
+        db.close()
+        return {"params": state.params, "sharpe_ratio": state.sharpe_ratio, "total_trades": len(closed), "wins": wins, "losses": losses}
+    db.close()
     return {"params": STRATEGY_DEFAULTS, "sharpe_ratio": None}
 
 
