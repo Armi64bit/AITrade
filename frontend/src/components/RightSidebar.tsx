@@ -6,7 +6,7 @@ import { StrategyHistory } from "./StrategyHistory";
 
 const LS_TAB = "aitrader_sidebar_tab";
 
-type Tab = "controls" | "strategy" | "history";
+type Tab = "bot" | "history";
 
 export function RightSidebar({
   status, symbol, onStart, onStop,
@@ -23,8 +23,8 @@ export function RightSidebar({
 }) {
   const [tab, setTab] = useState<Tab>(() => {
     const saved = localStorage.getItem(LS_TAB);
-    if (saved === "controls" || saved === "strategy" || saved === "history") return saved;
-    return "controls";
+    if (saved === "bot" || saved === "history") return saved;
+    return "bot";
   });
 
   const switchTab = (t: Tab) => {
@@ -33,8 +33,7 @@ export function RightSidebar({
   };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "controls", label: "Bot" },
-    { key: "strategy", label: "Strategy" },
+    { key: "bot", label: "Bot" },
     { key: "history", label: "History" },
   ];
 
@@ -56,11 +55,11 @@ export function RightSidebar({
         ))}
       </div>
 
-      {tab === "controls" && (
-        <Controls status={status} onStart={onStart} onStop={onStop} symbol={symbol} />
-      )}
-      {tab === "strategy" && (
-        <StrategyPanel strategy={strategy} onOptimize={onOptimize} optimizing={optimizing} />
+      {tab === "bot" && (
+        <>
+          <Controls status={status} onStart={onStart} onStop={onStop} symbol={symbol} />
+          <StrategyPanel strategy={strategy} onOptimize={onOptimize} optimizing={optimizing} />
+        </>
       )}
       {tab === "history" && (
         <StrategyHistory onActivate={onActivateStrategy} />
