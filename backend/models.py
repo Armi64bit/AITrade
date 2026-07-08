@@ -24,6 +24,7 @@ class Trade(Base):
     exit_time = Column(DateTime, nullable=True)
     status = Column(String, default="open")
     strategy_params = Column(JSON, nullable=True)
+    strategy_id = Column(Integer, nullable=True)
     market_conditions = Column(JSON, nullable=True)
 
 
@@ -37,6 +38,12 @@ class StrategyState(Base):
     losses = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+    key = Column(String, primary_key=True)
+    value = Column(String)
 
 
 Base.metadata.create_all(bind=engine)

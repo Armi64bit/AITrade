@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS
 from trader import BinanceTrader
-from models import SessionLocal, Trade, StrategyState
+from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
 from ai_analyzer import generate_analysis
 import pandas as pd
@@ -101,6 +101,53 @@ async def get_strategy():
     if state:
         return {"params": state.params, "sharpe_ratio": state.sharpe_ratio, "total_trades": state.total_trades, "wins": state.wins, "losses": state.losses}
     return {"params": STRATEGY_DEFAULTS, "sharpe_ratio": None}
+
+
+@app.get("/api/strategy-history")
+async def get_strategy_history():
+    db = SessionLocal()
+    states = db.query(StrategyState).order_by(StrategyState.id.desc()).limit(50).all()
+    closed = db.query(Trade).filter(Trade.status == "closed").all()
+    db.close()
+
+    result = []
+    for s in states:
+        matched = [t for t in closed if t.strategy_id == s.id]
+        wins = sum(1 for t in matched if t.pnl and t.pnl > 0)
+        losses = sum(1 for t in matched if t.pnl and t.pnl <= 0)
+        result.append({
+            "id": s.id,
+            "params": s.params,
+            "sharpe_ratio": s.sharpe_ratio,
+            "is_active": s.is_active,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "total_trades": len(matched),
+            "wins": wins,
+            "losses": losses,
+        })
+    return result
+
+
+class ActivateStrategyRequest(BaseModel):
+    strategy_id: int
+
+
+@app.post("/api/strategy/activate")
+async def activate_strategy(req: ActivateStrategyRequest):
+    db = SessionLocal()
+    target = db.query(StrategyState).filter(StrategyState.id == req.strategy_id).first()
+    if not target:
+        db.close()
+        return {"error": "Strategy not found"}
+    old = db.query(StrategyState).filter(StrategyState.is_active == True).all()
+    for o in old:
+        o.is_active = False
+    target.is_active = True
+    db.commit()
+    db.close()
+    if trader:
+        trader._active_strategy_id = target.id
+    return {"status": "activated", "params": target.params, "sharpe_ratio": target.sharpe_ratio}
 
 
 class OptimizeRequest(BaseModel):

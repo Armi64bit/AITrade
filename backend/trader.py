@@ -4,7 +4,7 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
-from models import SessionLocal, Trade, StrategyState
+from models import SessionLocal, Trade, StrategyState, Setting
 from strategy import compute_indicators, should_enter
 from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE
 
@@ -19,7 +19,7 @@ class BinanceTrader:
         })
         if testnet:
             self.exchange.set_sandbox_mode(True)
-        self.symbol = SYMBOL
+        self.symbol = self._load_setting("symbol", SYMBOL)
         self.running = False
         self.df = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
         self.position = None
@@ -29,9 +29,33 @@ class BinanceTrader:
         self._sim_price = 60000.0
         self._sim_balance = INITIAL_BALANCE
         self._sim_time = time.time()
+        self._active_strategy_id = None
+
+    def _load_setting(self, key, default):
+        try:
+            db = SessionLocal()
+            s = db.query(Setting).filter(Setting.key == key).first()
+            db.close()
+            return s.value if s else default
+        except:
+            return default
+
+    def _save_setting(self, key, value):
+        try:
+            db = SessionLocal()
+            existing = db.query(Setting).filter(Setting.key == key).first()
+            if existing:
+                existing.value = value
+            else:
+                db.add(Setting(key=key, value=value))
+            db.commit()
+            db.close()
+        except:
+            pass
 
     async def set_symbol(self, symbol: str):
         self.symbol = symbol
+        self._save_setting("symbol", symbol)
         self.df = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
         self.position = None
         self._data_loaded = False
@@ -187,6 +211,7 @@ class BinanceTrader:
                 quantity=quantity,
                 status="open",
                 strategy_params=params,
+                strategy_id=self._active_strategy_id,
             )
             db.add(trade)
             db.commit()
@@ -247,7 +272,9 @@ class BinanceTrader:
         state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
         db.close()
         if state:
+            self._active_strategy_id = state.id
             return state.params
+        self._active_strategy_id = None
         from config import STRATEGY_DEFAULTS
         return STRATEGY_DEFAULTS
 

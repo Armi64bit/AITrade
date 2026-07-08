@@ -22,15 +22,16 @@ function interpretRSI(v: number): string {
   return "No clear direction";
 }
 
-export function Controls({ status, onStart, onStop }: {
+export function Controls({ status, onStart, onStop, symbol }: {
   status: BotStatus | null;
   onStart: () => void;
   onStop: () => void;
+  symbol: string;
 }) {
   const running = status?.running ?? false;
   const price = status?.last_price;
   const rsi = status?.indicators?.rsi;
-  const sym = status?.position?.symbol ?? "BTC/USDT";
+  const sym = symbol || "BTC/USDT";
 
   return (
     <div className="card">

@@ -81,4 +81,6 @@ export const api = {
   setSymbol: (symbol: string) => post<{ symbol: string }>("/symbol", { symbol }),
   getAIInsights: () => get<{ messages: string[]; recommended_pair: string; suggest_optimize: boolean; position_status: string; expected_next_trade: number | null; expected_profit_24h: number | null; current_pnl: number | null }>("/ai-insights"),
   getDeepAnalysis: () => get<{ analysis: string | null }>("/ai-deep-analysis"),
+  getStrategyHistory: () => get<{ id: number; params: Record<string, number>; sharpe_ratio: number | null; is_active: boolean; created_at: string | null; total_trades: number; wins: number; losses: number }[]>("/strategy-history"),
+  activateStrategy: (id: number) => post<{ status: string; params: Record<string, number>; sharpe_ratio: number | null }>("/strategy/activate", { strategy_id: id }),
 };

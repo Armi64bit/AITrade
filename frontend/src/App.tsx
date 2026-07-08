@@ -9,6 +9,9 @@ import { TradeLog } from "./components/TradeLog";
 import { StrategyPanel } from "./components/StrategyPanel";
 import { Controls } from "./components/Controls";
 import { AIInsights } from "./components/AIInsights";
+import { StrategyHistory } from "./components/StrategyHistory";
+
+const LS_KEY = "aitrader_symbol";
 
 export default function App() {
   const wsStatus = useWebSocket();
@@ -18,7 +21,7 @@ export default function App() {
   const [candles, setCandles] = useState<any[]>([]);
   const [optimizing, setOptimizing] = useState(false);
   const [restStatus, setRestStatus] = useState<BotStatus | null>(null);
-  const [symbol, setSymbol] = useState("BTC/USDT");
+  const [symbol, setSymbol] = useState(() => localStorage.getItem(LS_KEY) || "BTC/USDT");
   const [changingSymbol, setChangingSymbol] = useState(false);
 
   useTradeSounds(trades);
@@ -56,6 +59,7 @@ export default function App() {
     try {
       await api.setSymbol(s);
       setSymbol(s);
+      localStorage.setItem(LS_KEY, s);
       await fetchCandles();
     } catch {}
     setChangingSymbol(false);
@@ -70,6 +74,10 @@ export default function App() {
       setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
     } catch {}
     setOptimizing(false);
+  };
+
+  const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null) => {
+    setStrategy({ params, sharpe_ratio: sharpe });
   };
 
   return (
@@ -93,8 +101,9 @@ export default function App() {
           <AIInsights onOptimize={handleOptimize} />
         </div>
         <div className="space-y-4">
-          <Controls status={status} onStart={handleStart} onStop={handleStop} />
+          <Controls status={status} onStart={handleStart} onStop={handleStop} symbol={symbol} />
           <StrategyPanel strategy={strategy} onOptimize={handleOptimize} optimizing={optimizing} />
+          <StrategyHistory onActivate={handleActivateStrategy} />
         </div>
       </div>
 
