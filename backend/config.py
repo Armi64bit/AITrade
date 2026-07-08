@@ -1,5 +1,8 @@
 import os
+import sys
 from dotenv import load_dotenv
+
+os.environ.setdefault("AIODNS_NO_RESOLVE", "1")
 
 load_dotenv()
 

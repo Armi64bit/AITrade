@@ -1,11 +1,12 @@
 import asyncio
+import time
 import ccxt.async_support as ccxt
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
 from models import SessionLocal, Trade, StrategyState
 from strategy import compute_indicators, should_enter
-from config import TRADE_CONFIG, SYMBOL, STABLE_COIN
+from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE
 
 
 class BinanceTrader:
@@ -24,15 +25,43 @@ class BinanceTrader:
         self.position = None
         self.consecutive_losses = 0
         self._data_loaded = False
+        self._use_simulated = False
+        self._sim_price = 60000.0
+        self._sim_balance = INITIAL_BALANCE
+        self._sim_time = time.time()
 
     async def load_data(self):
         if not self._data_loaded:
-            await self._load_history()
+            ok = await self._load_history()
+            if not ok:
+                self._use_simulated = True
+                self._generate_simulated_data()
             self._data_loaded = True
+
+    def _generate_simulated_data(self):
+        np.random.seed(42)
+        now = int(time.time() * 1000)
+        rows = []
+        price = self._sim_price
+        for i in range(200):
+            change = np.random.normal(0, price * 0.002)
+            o = price + np.random.normal(0, price * 0.001)
+            h = max(o, price) + abs(np.random.normal(0, price * 0.002))
+            l = min(o, price) - abs(np.random.normal(0, price * 0.002))
+            c = price + change
+            rows.append({"time": now - (200 - i) * 3600000, "open": o, "high": h, "low": l, "close": c, "volume": np.random.uniform(100, 1000)})
+            price = c
+        self._sim_price = price
+        self.df = pd.DataFrame(rows)
 
     async def start(self):
         self.running = True
-        await self._load_history()
+        if not self._data_loaded:
+            ok = await self._load_history()
+            if not ok:
+                self._use_simulated = True
+                self._generate_simulated_data()
+            self._data_loaded = True
         asyncio.create_task(self._tick_loop())
 
     def stop(self):
@@ -45,24 +74,19 @@ class BinanceTrader:
             for o in ohlcv:
                 rows.append({"time": o[0], "open": o[1], "high": o[2], "low": o[3], "close": o[4], "volume": o[5]})
             self.df = pd.DataFrame(rows)
+            self._sim_price = self.df["close"].iloc[-1]
+            return True
         except Exception as e:
             print(f"History load error: {e}")
+            return False
 
     async def _tick_loop(self):
         while self.running:
             try:
-                ticker = await self.exchange.fetch_ticker(self.symbol)
-                new_row = {
-                    "time": ticker["timestamp"],
-                    "open": ticker["open"],
-                    "high": ticker["high"],
-                    "low": ticker["low"],
-                    "close": ticker["last"],
-                    "volume": ticker["baseVolume"],
-                }
-                self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
-                if len(self.df) > 500:
-                    self.df = self.df.iloc[-500:]
+                if self._use_simulated:
+                    self._simulate_tick()
+                else:
+                    await self._real_tick()
 
                 params = await self._get_active_params()
                 df = compute_indicators(self.df, params)
@@ -80,32 +104,69 @@ class BinanceTrader:
                 await asyncio.sleep(10)
         await self.exchange.close()
 
+    def _simulate_tick(self):
+        change = np.random.normal(0, self._sim_price * 0.001)
+        self._sim_price *= (1 + change / self._sim_price)
+        new_row = {
+            "time": int(time.time() * 1000),
+            "open": self._sim_price,
+            "high": self._sim_price * 1.002,
+            "low": self._sim_price * 0.998,
+            "close": self._sim_price,
+            "volume": np.random.uniform(100, 1000),
+        }
+        self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
+        if len(self.df) > 500:
+            self.df = self.df.iloc[-500:]
+
+    async def _real_tick(self):
+        ticker = await self.exchange.fetch_ticker(self.symbol)
+        new_row = {
+            "time": ticker["timestamp"],
+            "open": ticker["open"],
+            "high": ticker["high"],
+            "low": ticker["low"],
+            "close": ticker["last"],
+            "volume": ticker["baseVolume"],
+        }
+        self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
+        if len(self.df) > 500:
+            self.df = self.df.iloc[-500:]
+
     async def _open_trade(self, signal, params):
         try:
-            balance = await self.exchange.fetch_balance()
-            usdt = balance.get(STABLE_COIN, {}).get("free", 0)
+            if self._use_simulated:
+                balance = self._sim_balance
+                price = self._sim_price
+            else:
+                balance_data = await self.exchange.fetch_balance()
+                balance = balance_data.get(STABLE_COIN, {}).get("free", 0)
+                ticker = await self.exchange.fetch_ticker(self.symbol)
+                price = ticker["last"]
+
             pct = params.get("position_size_pct", TRADE_CONFIG["position_size_pct"])
-            amount_usdt = usdt * pct
+            amount_usdt = balance * pct
             if amount_usdt < 10:
                 return
 
-            ticker = await self.exchange.fetch_ticker(self.symbol)
-            price = ticker["last"]
             quantity = amount_usdt / price
-
             side = "buy" if signal == 1 else "sell"
-            order = await self.exchange.create_order(
-                self.symbol, "market", side, quantity
-            )
+
+            if not self._use_simulated:
+                order = await self.exchange.create_order(
+                    self.symbol, "market", side, quantity
+                )
+
+            if self._use_simulated:
+                self._sim_balance -= amount_usdt
 
             self.position = {
-                "order": order,
                 "side": side,
                 "entry_price": price,
                 "quantity": quantity,
                 "entry_time": datetime.now(timezone.utc),
                 "strategy_params": params,
-                "market_conditions": {"rsi": None, "ema_short": None, "ema_long": None},
+                "market_conditions": {},
             }
 
             db = SessionLocal()
@@ -143,28 +204,29 @@ class BinanceTrader:
 
     async def _close_trade(self, exit_price, pnl_pct):
         try:
-            side = "sell" if self.position["side"] == "buy" else "buy"
-            await self.exchange.create_order(
-                self.symbol, "market", side, self.position["quantity"]
-            )
+            if not self._use_simulated:
+                side = "sell" if self.position["side"] == "buy" else "buy"
+                await self.exchange.create_order(
+                    self.symbol, "market", side, self.position["quantity"]
+                )
 
             db = SessionLocal()
             trade = db.query(Trade).filter(Trade.id == self._current_trade_db_id).first()
             if trade:
                 trade.exit_price = exit_price
                 trade.pnl = pnl_pct * self.position["quantity"] * self.position["entry_price"]
+                if self._use_simulated:
+                    self._sim_balance += trade.pnl + (self.position["quantity"] * self.position["entry_price"])
                 trade.pnl_pct = pnl_pct
                 trade.exit_time = datetime.now(timezone.utc)
                 trade.status = "closed"
                 db.commit()
-
             db.close()
 
             if pnl_pct < 0:
                 self.consecutive_losses += 1
             else:
                 self.consecutive_losses = 0
-
             self.position = None
             self._current_trade_db_id = None
         except Exception as e:
@@ -180,12 +242,13 @@ class BinanceTrader:
         return STRATEGY_DEFAULTS
 
     async def get_status(self):
-        balance_usdt = 0
-        try:
-            balance = await self.exchange.fetch_balance()
-            balance_usdt = balance.get(STABLE_COIN, {}).get("total", 0)
-        except Exception:
-            pass
+        balance_usdt = self._sim_balance if self._use_simulated else 0
+        if not self._use_simulated:
+            try:
+                balance = await self.exchange.fetch_balance()
+                balance_usdt = balance.get(STABLE_COIN, {}).get("total", 0)
+            except Exception:
+                pass
         return {
             "running": self.running,
             "balance_usdt": balance_usdt,
