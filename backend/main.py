@@ -1,5 +1,7 @@
 import asyncio
 import json
+import time
+import urllib.request
 import numpy as np
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -12,6 +14,26 @@ from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
 from ai_analyzer import generate_analysis
 import pandas as pd
+
+
+_tnd_rate = 3.0
+_tnd_rate_ts = 0.0
+
+
+def _fetch_tnd_rate():
+    global _tnd_rate, _tnd_rate_ts
+    if time.time() - _tnd_rate_ts < 3600:
+        return _tnd_rate
+    try:
+        resp = urllib.request.urlopen("https://open.er-api.com/v6/latest/USD", timeout=5)
+        data = json.loads(resp.read())
+        rate = data["rates"].get("TND")
+        if rate:
+            _tnd_rate = rate
+            _tnd_rate_ts = time.time()
+    except Exception as e:
+        print(f"TND rate fetch error: {e}")
+    return _tnd_rate
 
 
 trader = None
@@ -265,6 +287,7 @@ async def ai_insights():
         switch_msg = status.get("last_pair_switch_msg")
         if switch_msg:
             messages.append(f"🔄 {switch_msg}")
+            if trader: trader.last_pair_switch_msg = None
 
         rsi = indicators.get("rsi")
         ema_s = indicators.get("ema_short")
@@ -409,6 +432,11 @@ async def ai_deep_analysis():
     except Exception as e:
         import traceback; traceback.print_exc()
         return {"analysis": None}
+
+
+@app.get("/api/tnd-rate")
+async def get_tnd_rate():
+    return {"rate": _fetch_tnd_rate()}
 
 
 @app.websocket("/ws")

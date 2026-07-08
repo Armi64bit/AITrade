@@ -9,6 +9,7 @@ import { TradeLog } from "./components/TradeLog";
 import { AIInsights } from "./components/AIInsights";
 import { RightSidebar } from "./components/RightSidebar";
 import { StopDialog } from "./components/StopDialog";
+import { fetchTndRate } from "./utils/currency";
 
 const LS_KEY = "aitrader_symbol";
 const LS_STRATEGY = "aitrader_strategy";
@@ -36,6 +37,7 @@ export default function App() {
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
   useEffect(() => { api.getStrategy().then(s => { if (s) setStrategy(s); }); }, []);
+  useEffect(() => { fetchTndRate(); }, []);
 
   useEffect(() => {
     if (strategy) localStorage.setItem(LS_STRATEGY, JSON.stringify(strategy));
