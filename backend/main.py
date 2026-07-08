@@ -19,6 +19,7 @@ trader = None
 async def lifespan(app: FastAPI):
     global trader
     trader = BinanceTrader(BINANCE_API_KEY, BINANCE_SECRET_KEY, testnet=BINANCE_TESTNET)
+    asyncio.create_task(trader.load_data())
     yield
     if trader:
         trader.stop()

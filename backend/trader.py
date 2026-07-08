@@ -23,6 +23,12 @@ class BinanceTrader:
         self.df = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
         self.position = None
         self.consecutive_losses = 0
+        self._data_loaded = False
+
+    async def load_data(self):
+        if not self._data_loaded:
+            await self._load_history()
+            self._data_loaded = True
 
     async def start(self):
         self.running = True
