@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type Trade, type StrategyInfo, type Performance } from "./api/client";
+import { api, type BotStatus, type Trade, type StrategyInfo, type Performance } from "./api/client";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { Dashboard } from "./components/Dashboard";
 import { PriceChart } from "./components/PriceChart";
@@ -7,7 +7,7 @@ import { TradeLog } from "./components/TradeLog";
 import { StrategyPanel } from "./components/StrategyPanel";
 import { Controls } from "./components/Controls";
 
-const WS_CANDLES: any[] = [];
+const CANDLES: any[] = [];
 
 export default function App() {
   const wsStatus = useWebSocket();
@@ -16,30 +16,35 @@ export default function App() {
   const [perf, setPerf] = useState<Performance | null>(null);
   const [candles, setCandles] = useState<any[]>([]);
   const [optimizing, setOptimizing] = useState(false);
+  const [restStatus, setRestStatus] = useState<BotStatus | null>(null);
+
+  const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
   useEffect(() => { api.getStrategy().then(setStrategy); }, []);
-  useEffect(() => { api.getPerformance().then(setPerf); }, []);
 
-  const addCandle = (price: number) => {
-    WS_CANDLES.push({ time: Date.now(), close: price });
-    if (WS_CANDLES.length > 200) WS_CANDLES.shift();
-    setCandles([...WS_CANDLES]);
+  const poll = async () => {
+    try {
+      const [s, p] = await Promise.all([api.getStatus(), api.getPerformance()]);
+      setRestStatus(s);
+      setPerf(p);
+      if (s.last_price) {
+        CANDLES.push({ time: Date.now(), close: s.last_price });
+        if (CANDLES.length > 200) CANDLES.shift();
+        setCandles([...CANDLES]);
+      }
+    } catch {}
   };
 
-  useEffect(() => {
-    if (wsStatus?.last_price) addCandle(wsStatus.last_price);
-  }, [wsStatus?.last_price]);
+  useEffect(() => { poll(); const id = setInterval(poll, 3000); return () => clearInterval(id); }, []);
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const s = await api.getStatus();
-        if (s.last_price) addCandle(s.last_price);
-      } catch {}
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (wsStatus?.last_price) {
+      CANDLES.push({ time: Date.now(), close: wsStatus.last_price });
+      if (CANDLES.length > 200) CANDLES.shift();
+      setCandles([...CANDLES]);
+    }
+  }, [wsStatus?.last_price]);
 
   const handleStart = async () => { await api.startBot(); };
   const handleStop = async () => { await api.stopBot(); };
@@ -67,7 +72,7 @@ export default function App() {
           <PriceChart data={candles} />
         </div>
         <div className="space-y-4">
-          <Controls status={wsStatus} onStart={handleStart} onStop={handleStop} />
+          <Controls status={status} onStart={handleStart} onStop={handleStop} />
           <StrategyPanel strategy={strategy} onOptimize={handleOptimize} optimizing={optimizing} />
         </div>
       </div>
