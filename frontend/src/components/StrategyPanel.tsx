@@ -74,7 +74,16 @@ export function StrategyPanel({ strategy, onOptimize, optimizing }: {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
           Strategy
-          <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full font-semibold">ACTIVE</span>
+          {strategy?.wins !== undefined ? (
+            <span className="text-xs text-slate-400 font-mono font-normal flex items-center gap-1.5">
+              <span className="text-emerald-400">{strategy.wins}W</span>
+              <span className="text-slate-600">|</span>
+              <span className="text-red-400">{strategy.losses}L</span>
+              {strategy.total_trades ? <span className="text-slate-500">({strategy.total_trades})</span> : null}
+            </span>
+          ) : (
+            <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full font-semibold">ACTIVE</span>
+          )}
         </h3>
         <button
           onClick={onOptimize}
