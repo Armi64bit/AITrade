@@ -1,1 +1,1 @@
-{ "rewrites": [{ "source": "/api/(.*)", "destination": "https://REPLACE_ME.up.railway.app/api/$1" }, { "source": "/ws", "destination": "wss://REPLACE_ME.up.railway.app/ws" }] }
+{ "rewrites": [{ "source": "/api/(.*)", "destination": "https://aitrade-production-ecba.up.railway.app/api/$1" }, { "source": "/ws", "destination": "wss://aitrade-production-ecba.up.railway.app/ws" }] }
