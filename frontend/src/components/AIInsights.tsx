@@ -34,8 +34,14 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
     setDeepLoading(true);
     try {
       const d = await api.getDeepAnalysis();
-      if (d.analysis) setDeepAnalysis(d.analysis);
-    } catch {}
+      if (d.analysis) {
+        setDeepAnalysis(d.analysis);
+      } else {
+        setDeepAnalysis("⚠️ No analysis returned. Check Railway logs.");
+      }
+    } catch {
+      setDeepAnalysis("⚠️ Failed to fetch analysis.");
+    }
     setDeepLoading(false);
   }, []);
 
@@ -103,11 +109,11 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
             disabled={deepLoading}
             className="text-xs text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition-colors cursor-pointer"
           >
-            {deepLoading ? "Thinking..." : deepAnalysis ? "Refresh" : "Generate"}
+            {deepLoading ? "Thinking..." : deepAnalysis?.includes("⚠️") ? "Retry" : "Refresh"}
           </button>
         </div>
         {deepAnalysis ? (
-          <div className="text-sm text-slate-200">{deepAnalysis}</div>
+          <div className={`text-sm ${deepAnalysis.includes("⚠️") ? "text-yellow-300" : "text-slate-200"}`}>{deepAnalysis}</div>
         ) : (
           <div className="text-xs text-slate-500">
             {deepLoading ? "Asking AI..." : "Click Generate to get a real AI market summary."}

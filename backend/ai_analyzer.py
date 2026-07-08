@@ -67,7 +67,7 @@ def _hash(data: dict) -> str:
 
 async def generate_analysis(market_data: dict) -> str | None:
     if not client:
-        return None
+        return "⚠️ OpenRouter API key not configured. Set OPENROUTER_API_KEY in Railway env vars."
 
     h = _hash(market_data)
     if _analysis_cache["data_hash"] == h and _analysis_cache["result"]:
@@ -91,4 +91,4 @@ async def generate_analysis(market_data: dict) -> str | None:
         return text
     except Exception as e:
         print(f"OpenRouter error: {e}")
-        return None
+        return f"⚠️ AI error: {e}"
