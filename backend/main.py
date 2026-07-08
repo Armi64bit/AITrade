@@ -120,7 +120,7 @@ async def get_strategy():
     db = SessionLocal()
     state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
     if state:
-        closed = db.query(Trade).filter(Trade.status == "closed", Trade.strategy_id == state.id).all()
+        closed = db.query(Trade).filter(Trade.status == "closed").all()
         wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
         losses = sum(1 for t in closed if t.pnl and t.pnl <= 0)
         db.close()
