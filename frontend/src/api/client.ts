@@ -86,4 +86,5 @@ export const api = {
   getStrategyHistory: () => get<{ id: number; params: Record<string, number>; sharpe_ratio: number | null; is_active: boolean; created_at: string | null; total_trades: number; wins: number; losses: number }[]>("/strategy-history"),
   activateStrategy: (id: number) => post<{ status: string; params: Record<string, number>; sharpe_ratio: number | null }>("/strategy/activate", { strategy_id: id }),
   getTndRate: () => get<{ rate: number }>("/tnd-rate"),
+  getActivityLog: () => get<{ time: string; type: string; message: string }[]>("/activity-log"),
 };

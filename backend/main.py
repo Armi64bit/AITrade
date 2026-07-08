@@ -173,6 +173,7 @@ async def activate_strategy(req: ActivateStrategyRequest):
     db.close()
     if trader:
         trader._active_strategy_id = target.id
+        trader._log_event("strategy", f"Strategy #{target.id} activated (Sharpe: {target.sharpe_ratio})")
     return {"status": "activated", "params": target.params, "sharpe_ratio": target.sharpe_ratio}
 
 
@@ -189,9 +190,11 @@ async def optimize(req: OptimizeRequest):
         return {"error": "Not enough data. Need at least 50 candles."}
     trader.stop()
     await asyncio.sleep(1)
+    trader._log_event("optimize", f"Manual optimization started ({req.n_trials} trials)")
     try:
         loop = asyncio.get_event_loop()
         params, sharpe = await loop.run_in_executor(None, run_optimization, df, req.n_trials)
+        trader._log_event("optimize", f"Optimization complete! Sharpe: {sharpe:.3f}")
         return {"params": params, "sharpe_ratio": sharpe}
     finally:
         await trader.start()
@@ -437,6 +440,13 @@ async def ai_deep_analysis():
 @app.get("/api/tnd-rate")
 async def get_tnd_rate():
     return {"rate": _fetch_tnd_rate()}
+
+
+@app.get("/api/activity-log")
+async def get_activity_log():
+    if not trader:
+        return []
+    return trader._activity_log[-100:]
 
 
 @app.websocket("/ws")

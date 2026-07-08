@@ -38,6 +38,16 @@ class BinanceTrader:
         self._pair_scores = self._init_pair_scores()
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._optimizing = False
+        self._activity_log: list[dict] = []
+
+    def _log_event(self, event_type: str, message: str):
+        self._activity_log.append({
+            "time": datetime.now(timezone.utc).isoformat(),
+            "type": event_type,
+            "message": message,
+        })
+        if len(self._activity_log) > 200:
+            self._activity_log = self._activity_log[-200:]
 
     def _load_setting(self, key, default):
         try:
@@ -96,6 +106,7 @@ class BinanceTrader:
 
     async def start(self):
         self.running = True
+        self._log_event("bot", "Bot started")
         if not self._data_loaded:
             ok = await self._load_history()
             if not ok:
@@ -108,13 +119,16 @@ class BinanceTrader:
         self.stop_after_trade = False
         if after_trade and self.position:
             self.stop_after_trade = True
+            self._log_event("bot", "Stop requested — will stop after current trade")
         else:
             self.running = False
+            self._log_event("bot", "Bot stopped")
 
     async def _auto_optimize(self):
         if self._optimizing or len(self.df) < 50:
             return
         self._optimizing = True
+        self._log_event("optimize", "Auto-optimizing after 2 consecutive losses...")
         self.last_pair_switch_msg = "⚙️ Auto-optimizing strategy after 2 consecutive losses..."
         try:
             from optimizer import run_optimization
@@ -127,9 +141,11 @@ class BinanceTrader:
                 self._active_strategy_id = active.id
             db.close()
             self.last_pair_switch_msg = f"✅ Auto-optimized! New Sharpe: {sharpe:.3f}"
+            self._log_event("optimize", f"Auto-optimized! New Sharpe: {sharpe:.3f}")
         except Exception as e:
             print(f"Auto-optimize error: {e}")
             self.last_pair_switch_msg = None
+            self._log_event("optimize", f"Auto-optimize failed: {e}")
         self._optimizing = False
 
     def _init_pair_scores(self):
@@ -146,6 +162,7 @@ class BinanceTrader:
                 return
             await self.set_symbol(target)
             self.last_pair_switch_msg = f"Auto-switched to {target} — best performing pair right now"
+            self._log_event("pair_switch", f"Auto-switched to {target}")
             return
 
         if len(self.df) < 20:

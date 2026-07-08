@@ -4,12 +4,13 @@ import { Controls } from "./Controls";
 import { StrategyPanel } from "./StrategyPanel";
 import { StrategyHistory } from "./StrategyHistory";
 import { DailyPerformance } from "./DailyPerformance";
+import { ActivityLog } from "./ActivityLog";
 
 const LS_TAB = "aitrader_sidebar_tab";
 const LS_HISTORY_TAB = "aitrader_history_tab";
 
 type Tab = "bot" | "history";
-type HistoryTab = "strategies" | "daily";
+type HistoryTab = "strategies" | "daily" | "log";
 
 export function RightSidebar({
   status, symbol, onStart, onStop,
@@ -32,7 +33,7 @@ export function RightSidebar({
   });
   const [historyTab, setHistoryTab] = useState<HistoryTab>(() => {
     const saved = localStorage.getItem(LS_HISTORY_TAB);
-    if (saved === "strategies" || saved === "daily") return saved;
+    if (saved === "strategies" || saved === "daily" || saved === "log") return saved;
     return "strategies";
   });
 
@@ -78,7 +79,7 @@ export function RightSidebar({
       {tab === "history" && (
         <div className="space-y-3">
           <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5">
-            {([{ key: "strategies" as const, label: "Strategies" }, { key: "daily" as const, label: "Daily" }]).map((t) => (
+            {([{ key: "strategies" as const, label: "Strategies" }, { key: "daily" as const, label: "Daily" }, { key: "log" as const, label: "Log" }]).map((t) => (
               <button
                 key={t.key}
                 onClick={() => switchHistoryTab(t.key)}
@@ -94,8 +95,10 @@ export function RightSidebar({
           </div>
           {historyTab === "strategies" ? (
             <StrategyHistory onActivate={onActivateStrategy} />
-          ) : (
+          ) : historyTab === "daily" ? (
             <DailyPerformance trades={trades} />
+          ) : (
+            <ActivityLog />
           )}
         </div>
       )}
