@@ -61,8 +61,8 @@ _analysis_cache = {"data_hash": None, "result": None}
 
 def _hash(data: dict) -> str:
     pos = data.get("position")
-    pos_str = f"{pos['side']}_{pos['entry_price']:.2f}_{pos.get('unrealized_pnl', 0):.2f}" if pos else "none"
-    return f"{data.get('price', 0):.0f}_{data.get('rsi', 0):.0f}_{pos_str}"
+    pos_str = f"{pos['side']}_{pos['entry_price']:.2f}_{(pos.get('unrealized_pnl') or 0):.2f}" if pos else "none"
+    return f"{(data.get('price') or 0):.0f}_{(data.get('rsi') or 0):.0f}_{pos_str}"
 
 
 async def generate_analysis(market_data: dict) -> str | None:
