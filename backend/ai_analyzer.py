@@ -1,15 +1,17 @@
-import json
-from openai import OpenAI
 from config import OPENROUTER_API_KEY
 
 client = None
-if OPENROUTER_API_KEY:
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
-    )
-
 MODEL = "mistralai/mistral-7b-instruct:free"
+
+if OPENROUTER_API_KEY:
+    try:
+        from openai import OpenAI
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=OPENROUTER_API_KEY,
+        )
+    except Exception:
+        client = None
 
 SYSTEM_PROMPT = """You are a crypto trading assistant analyzing live market data. 
 Explain what's happening in simple language a beginner can understand. Be direct and practical.
