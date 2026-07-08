@@ -22,13 +22,20 @@ class RsiReversal(BaseStrategy):
         rsi = 100 - (100 / (1 + rs))
         last_rsi = rsi.iloc[-1]
 
-        # Buy when oversold (expecting reversal up)
+        # Strong reversal signal at extremes
         if last_rsi < oversold:
-            confidence = min((oversold - last_rsi) / oversold + 0.2, 1.0)
+            confidence = min((oversold - last_rsi) / oversold + 0.3, 1.0)
             return 1, round(confidence, 2)
-        # Sell when overbought (expecting reversal down)
         if last_rsi > overbought:
-            confidence = min((last_rsi - overbought) / (100 - overbought) + 0.2, 1.0)
+            confidence = min((last_rsi - overbought) / (100 - overbought) + 0.3, 1.0)
+            return -1, round(confidence, 2)
+
+        # Weak lean: approaching oversold -> lean buy, approaching overbought -> lean sell
+        if last_rsi < 40:
+            confidence = (40 - last_rsi) / 40 * 0.5
+            return 1, round(confidence, 2)
+        if last_rsi > 60:
+            confidence = (last_rsi - 60) / 40 * 0.5
             return -1, round(confidence, 2)
 
         return 0, 0.0

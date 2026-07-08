@@ -35,11 +35,24 @@ class EmaCrossover(BaseStrategy):
         bull_cross = prev_ema_s <= prev_ema_l and last_ema_s > last_ema_l
         bear_cross = prev_ema_s >= prev_ema_l and last_ema_s < last_ema_l
 
+        # Trend strength: gap between fast and slow EMA
+        ema_gap = (last_ema_s - last_ema_l) / last_ema_l
+        ema_slope = ema_s.diff().iloc[-1] / last_ema_s if len(ema_s) > 1 else 0
+
+        # Strong crossover
         if bull_cross and last_rsi < ob:
-            confidence = min(abs(last_rsi - 50) / 50 + 0.3, 1.0)
+            confidence = min(abs(last_rsi - 50) / 50 + 0.4, 1.0)
             return 1, round(confidence, 2)
         if bear_cross and last_rsi > os:
-            confidence = min(abs(last_rsi - 50) / 50 + 0.3, 1.0)
+            confidence = min(abs(last_rsi - 50) / 50 + 0.4, 1.0)
+            return -1, round(confidence, 2)
+
+        # Established trend: EMA short above long, slope positive
+        if last_ema_s > last_ema_l and ema_gap > 0.001 and ema_slope > 0 and last_rsi < ob:
+            confidence = min(ema_gap * 50 + abs(last_rsi - 50) / 100, 0.6)
+            return 1, round(confidence, 2)
+        if last_ema_s < last_ema_l and ema_gap < -0.001 and ema_slope < 0 and last_rsi > os:
+            confidence = min(abs(ema_gap) * 50 + abs(last_rsi - 50) / 100, 0.6)
             return -1, round(confidence, 2)
 
         return 0, 0.0
