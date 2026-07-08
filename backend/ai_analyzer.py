@@ -67,7 +67,6 @@ def _hash(data: dict) -> str:
 
 async def generate_analysis(market_data: dict) -> str | None:
     if not client:
-        print("ai_analyzer: no client (OPENROUTER_API_KEY not set)")
         return "⚠️ OpenRouter API key not configured. Set OPENROUTER_API_KEY in Railway env vars."
 
     h = _hash(market_data)
