@@ -277,7 +277,7 @@ async def ai_insights():
         consec_losses = status.get("consecutive_losses", 0)
         position = status.get("position")
 
-        closed = [t for t in all_closed if t.pnl is not None]
+        closed = [t for t in all_closed if t.pnl is not None and t.pnl_pct is not None and t.entry_time and t.exit_time]
         avg_return = 0.0
         avg_duration_hours = 0.0
         trades_per_day = 0.0
@@ -291,11 +291,7 @@ async def ai_insights():
             total = wins + losses
             win_rate = wins / total if total > 0 else 0
             avg_return = np.mean([t.pnl_pct for t in closed]) if closed else 0
-            durations = []
-            for t in closed:
-                if t.entry_time and t.exit_time:
-                    delta = (t.exit_time - t.entry_time).total_seconds() / 3600
-                    durations.append(delta)
+            durations = [(t.exit_time - t.entry_time).total_seconds() / 3600 for t in closed]
             avg_duration_hours = np.mean(durations) if durations else 2
             total_timed = max((closed[-1].exit_time - closed[0].entry_time).total_seconds() / 3600, 1) if len(closed) > 1 else 24
             trades_per_day = len(closed) / (total_timed / 24)
@@ -406,7 +402,7 @@ async def ai_insights():
             "current_pnl": round(raw_pnl, 2) if position else None,
         }
     except Exception as e:
-        print(f"AI insights error: {e}")
+        import traceback; traceback.print_exc()
         return {"messages": ["Market data is being loaded..."], "recommended_pair": "BTC/USDT",
                 "suggest_optimize": False, "position_status": "loading",
                 "expected_next_trade": None, "expected_profit_24h": None, "current_pnl": None}
@@ -459,7 +455,7 @@ async def ai_deep_analysis():
         analysis = await generate_analysis(market_data)
         return {"analysis": analysis}
     except Exception as e:
-        print(f"Deep analysis error: {e}")
+        import traceback; traceback.print_exc()
         return {"analysis": None}
 
 

@@ -6,10 +6,8 @@ import { Dashboard } from "./components/Dashboard";
 import { CandlestickChart } from "./components/CandlestickChart";
 import { SymbolSelector } from "./components/SymbolSelector";
 import { TradeLog } from "./components/TradeLog";
-import { StrategyPanel } from "./components/StrategyPanel";
-import { Controls } from "./components/Controls";
 import { AIInsights } from "./components/AIInsights";
-import { StrategyHistory } from "./components/StrategyHistory";
+import { RightSidebar } from "./components/RightSidebar";
 import { StopDialog } from "./components/StopDialog";
 
 const LS_KEY = "aitrader_symbol";
@@ -111,9 +109,16 @@ export default function App() {
           <AIInsights onOptimize={handleOptimize} />
         </div>
         <div className="space-y-4">
-          <Controls status={status} onStart={handleStart} onStop={handleStop} symbol={symbol} />
-          <StrategyPanel strategy={strategy} onOptimize={handleOptimize} optimizing={optimizing} />
-          <StrategyHistory onActivate={handleActivateStrategy} />
+          <RightSidebar
+            status={status}
+            symbol={symbol}
+            onStart={handleStart}
+            onStop={handleStop}
+            strategy={strategy}
+            onOptimize={handleOptimize}
+            optimizing={optimizing}
+            onActivateStrategy={handleActivateStrategy}
+          />
         </div>
       </div>
 
