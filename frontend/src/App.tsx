@@ -34,7 +34,7 @@ export default function App() {
   const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
-  useEffect(() => { api.getStrategy().then((s) => { if (s && s.sharpe_ratio != null) setStrategy(s); }); }, []);
+  useEffect(() => { api.getStrategy().then((s) => { if (s) setStrategy(s); }); }, []);
 
   useEffect(() => {
     if (strategy) localStorage.setItem(LS_STRATEGY, JSON.stringify(strategy));
