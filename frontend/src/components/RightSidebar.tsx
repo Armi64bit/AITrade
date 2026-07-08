@@ -1,16 +1,19 @@
 import { useState } from "react";
-import type { BotStatus, StrategyInfo } from "../api/client";
+import type { BotStatus, StrategyInfo, Trade } from "../api/client";
 import { Controls } from "./Controls";
 import { StrategyPanel } from "./StrategyPanel";
 import { StrategyHistory } from "./StrategyHistory";
+import { DailyPerformance } from "./DailyPerformance";
 
 const LS_TAB = "aitrader_sidebar_tab";
+const LS_HISTORY_TAB = "aitrader_history_tab";
 
 type Tab = "bot" | "history";
+type HistoryTab = "strategies" | "daily";
 
 export function RightSidebar({
   status, symbol, onStart, onStop,
-  strategy, onOptimize, optimizing, onActivateStrategy,
+  strategy, onOptimize, optimizing, onActivateStrategy, trades,
 }: {
   status: BotStatus | null;
   symbol: string;
@@ -20,16 +23,27 @@ export function RightSidebar({
   onOptimize: () => void;
   optimizing: boolean;
   onActivateStrategy: (params: Record<string, number>, sharpe: number | null, total_trades?: number, wins?: number, losses?: number) => void;
+  trades: Trade[];
 }) {
   const [tab, setTab] = useState<Tab>(() => {
     const saved = localStorage.getItem(LS_TAB);
     if (saved === "bot" || saved === "history") return saved;
     return "bot";
   });
+  const [historyTab, setHistoryTab] = useState<HistoryTab>(() => {
+    const saved = localStorage.getItem(LS_HISTORY_TAB);
+    if (saved === "strategies" || saved === "daily") return saved;
+    return "strategies";
+  });
 
   const switchTab = (t: Tab) => {
     setTab(t);
     localStorage.setItem(LS_TAB, t);
+  };
+
+  const switchHistoryTab = (t: HistoryTab) => {
+    setHistoryTab(t);
+    localStorage.setItem(LS_HISTORY_TAB, t);
   };
 
   const tabs: { key: Tab; label: string }[] = [
@@ -62,7 +76,28 @@ export function RightSidebar({
         </>
       )}
       {tab === "history" && (
-        <StrategyHistory onActivate={onActivateStrategy} />
+        <div className="space-y-3">
+          <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5">
+            {([{ key: "strategies" as const, label: "Strategies" }, { key: "daily" as const, label: "Daily" }]).map((t) => (
+              <button
+                key={t.key}
+                onClick={() => switchHistoryTab(t.key)}
+                className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  historyTab === t.key
+                    ? "bg-slate-700 text-slate-100"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {historyTab === "strategies" ? (
+            <StrategyHistory onActivate={onActivateStrategy} />
+          ) : (
+            <DailyPerformance trades={trades} />
+          )}
+        </div>
       )}
     </div>
   );

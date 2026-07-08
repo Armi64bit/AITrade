@@ -156,6 +156,7 @@ export default function App() {
             onOptimize={handleOptimize}
             optimizing={optimizing}
             onActivateStrategy={handleActivateStrategy}
+            trades={trades}
           />
         </div>
       </div>
