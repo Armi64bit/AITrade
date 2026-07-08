@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+ccxt
+sqlalchemy
+optuna
+pandas
+numpy
+python-dotenv
