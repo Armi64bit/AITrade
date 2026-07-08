@@ -3,7 +3,7 @@ import re
 from config import OPENROUTER_API_KEY
 
 client = None
-MODEL = "deepseek/deepseek-chat-v3-0324:free"
+MODEL = "openrouter/free"
 
 if OPENROUTER_API_KEY:
     try:
@@ -15,16 +15,9 @@ if OPENROUTER_API_KEY:
     except Exception:
         client = None
 
-SYSTEM_PROMPT = """You are a crypto trading signal generator. Analyze the market data and output a trading signal as valid JSON only. No markdown, no explanation, no thinking. Just the JSON object.
+SYSTEM_PROMPT = """You are a crypto trading signal generator. Analyze the market data and output ONLY a JSON object with these exact fields. No other text, no thinking, no markdown.
 
-{
-  "signal": "BUY" or "SELL" or "HOLD" or "WAIT",
-  "entry": "entry price or range string",
-  "stop_loss": "stop loss price string",
-  "take_profit": "take profit target string",
-  "confidence": 0-100,
-  "reasoning": "1-2 sentence explanation of the setup"
-}"""
+{"signal":"BUY or SELL or HOLD or WAIT","entry":"entry price or range","stop_loss":"stop loss price","take_profit":"take profit target","confidence":0-100,"reasoning":"1-2 sentence setup explanation"}"""
 
 
 def build_prompt(data: dict) -> str:
@@ -63,7 +56,7 @@ def build_prompt(data: dict) -> str:
     if news:
         lines.append(f"\n--- Market News ---\n{news}")
 
-    lines.append("\nBased on this data, what is your trading signal? Output JSON only.")
+    lines.append("\nWhat is your trading signal? Output JSON only.")
 
     return "\n".join(line for line in lines if line)
 
