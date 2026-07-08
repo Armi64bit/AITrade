@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from models import SessionLocal, Trade, StrategyState, Setting
 from strategy import compute_indicators, should_enter
 from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE, SYMBOLS
+from concurrent.futures import ThreadPoolExecutor
 
 
 class BinanceTrader:
@@ -35,6 +36,8 @@ class BinanceTrader:
         self.last_pair_switch_msg = None
         self._pending_symbol = None
         self._pair_scores = self._init_pair_scores()
+        self._executor = ThreadPoolExecutor(max_workers=1)
+        self._optimizing = False
 
     def _load_setting(self, key, default):
         try:
@@ -107,6 +110,27 @@ class BinanceTrader:
             self.stop_after_trade = True
         else:
             self.running = False
+
+    async def _auto_optimize(self):
+        if self._optimizing or len(self.df) < 50:
+            return
+        self._optimizing = True
+        self.last_pair_switch_msg = "⚙️ Auto-optimizing strategy after 2 consecutive losses..."
+        try:
+            from optimizer import run_optimization
+            loop = asyncio.get_event_loop()
+            best_params, sharpe = await loop.run_in_executor(self._executor, run_optimization, self.df, 200)
+            self._active_strategy_id = None
+            db = SessionLocal()
+            active = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
+            if active:
+                self._active_strategy_id = active.id
+            db.close()
+            self.last_pair_switch_msg = f"✅ Auto-optimized! New Sharpe: {sharpe:.3f}"
+        except Exception as e:
+            print(f"Auto-optimize error: {e}")
+            self.last_pair_switch_msg = None
+        self._optimizing = False
 
     def _init_pair_scores(self):
         rng = np.random.default_rng(42)
@@ -305,6 +329,8 @@ class BinanceTrader:
 
             if pnl_pct < 0:
                 self.consecutive_losses += 1
+                if self.consecutive_losses >= 2:
+                    asyncio.create_task(self._auto_optimize())
             else:
                 self.consecutive_losses = 0
             self.position = None
