@@ -41,9 +41,11 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
     setDeepLoading(false);
   }, []);
 
-  // Auto-fetch deep analysis once on mount
+  // Auto-fetch deep analysis on mount and every 30s
   useEffect(() => {
     fetchDeep();
+    const id = setInterval(fetchDeep, 30000);
+    return () => clearInterval(id);
   }, [fetchDeep]);
 
   if (loading && !data) {
@@ -105,7 +107,7 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
             disabled={deepLoading}
             className="text-xs text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition-colors cursor-pointer"
           >
-            {deepLoading ? "Thinking..." : deepAnalysis?.includes("⚠️") ? "Retry" : "Refresh"}
+            {deepLoading ? "⟳" : "↻"}
           </button>
         </div>
         {deepAnalysis ? (

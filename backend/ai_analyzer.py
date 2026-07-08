@@ -1,7 +1,7 @@
 from config import OPENROUTER_API_KEY
 
 client = None
-MODEL = "openrouter/free"
+MODEL = "deepseek/deepseek-chat-v3-0324:free"
 
 if OPENROUTER_API_KEY:
     try:
@@ -13,9 +13,7 @@ if OPENROUTER_API_KEY:
     except Exception:
         client = None
 
-SYSTEM_PROMPT = """You are a crypto trading assistant analyzing live market data. 
-Explain what's happening in simple language a beginner can understand. Be direct and practical.
-Keep your response to 3-4 short sentences. No markdown. No jargon."""
+SYSTEM_PROMPT = """You are a crypto trading assistant. Output ONLY a 2-3 sentence plain-English market summary. Never explain what you're doing. Never use markdown. Never use first-person. Just state the facts and what to expect. Be direct."""
 
 
 def build_prompt(data: dict) -> str:
@@ -51,7 +49,7 @@ def build_prompt(data: dict) -> str:
     if recent_pnl is not None:
         lines.append(f"Recent trade P&L: {recent_pnl:+.2f}%")
 
-    lines.append("\nWhat is the market doing? Give me a short plain-English summary and what to expect next.")
+    lines.append("\nWhat is happening right now and what to expect next?")
 
     return "\n".join(line for line in lines if line)
 
@@ -85,7 +83,14 @@ async def generate_analysis(market_data: dict) -> str | None:
             temperature=0.7,
             timeout=15,
         )
-        text = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        if not content:
+            return "⚠️ AI returned empty response."
+        text = content.strip()
+        # Strip any thinking/reasoning block
+        if " think" in text:
+            parts = text.split("\n")
+            text = "\n".join(p for p in parts if not p.strip().startswith("Okay") and not p.strip().startswith("Let me") and not p.strip().startswith("The user"))
         _analysis_cache["data_hash"] = h
         _analysis_cache["result"] = text
         return text

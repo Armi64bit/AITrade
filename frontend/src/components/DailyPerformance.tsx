@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Trade } from "../api/client";
 import { CryptoIcon } from "./CryptoIcon";
-import { money } from "../utils/currency";
 
 interface DayGroup {
   date: string;
