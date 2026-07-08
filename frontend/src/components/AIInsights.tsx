@@ -34,11 +34,7 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
     setDeepLoading(true);
     try {
       const d = await api.getDeepAnalysis();
-      if (d.analysis) {
-        setDeepAnalysis(d.analysis);
-      } else {
-        setDeepAnalysis("⚠️ No analysis returned. Check Railway logs.");
-      }
+      setDeepAnalysis(d.analysis ?? "⚠️ No analysis returned (empty response).");
     } catch {
       setDeepAnalysis("⚠️ Failed to fetch analysis.");
     }

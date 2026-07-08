@@ -387,6 +387,7 @@ async def ai_insights():
 async def ai_deep_analysis():
     try:
         if not trader or len(trader.df) < 2:
+            print(f"ai-deep-analysis: skipped — trader={bool(trader)}, df_len={len(trader.df) if trader else 0}")
             return {"analysis": None}
         status = await trader.get_status()
         indicators = trader.get_indicators()
@@ -428,10 +429,11 @@ async def ai_deep_analysis():
         }
 
         analysis = await generate_analysis(market_data)
+        print(f"ai-deep-analysis: result={analysis!r}")
         return {"analysis": analysis}
     except Exception as e:
         import traceback; traceback.print_exc()
-        return {"analysis": None}
+        return {"analysis": f"⚠️ Backend error: {e}"}
 
 
 @app.get("/api/tnd-rate")
