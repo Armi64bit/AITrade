@@ -1,7 +1,7 @@
 from config import OPENROUTER_API_KEY
 
 client = None
-MODEL = "google/gemma-2-9b-it:free"
+MODEL = "openrouter/free"
 
 if OPENROUTER_API_KEY:
     try:
