@@ -10,6 +10,7 @@ from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_C
 from trader import BinanceTrader
 from models import SessionLocal, Trade, StrategyState
 from optimizer import run_optimization
+from ai_analyzer import generate_analysis
 import pandas as pd
 
 
@@ -373,6 +374,54 @@ async def ai_insights():
         "expected_profit_24h": round(expected_profit_24h, 1) if expected_profit_24h else None,
         "current_pnl": round(raw_pnl, 2) if position else None,
     }
+
+
+@app.get("/api/ai-deep-analysis")
+async def ai_deep_analysis():
+    if not trader or len(trader.df) < 2:
+        return {"analysis": None}
+    status = await trader.get_status()
+    indicators = trader.get_indicators()
+    db = SessionLocal()
+    closed = db.query(Trade).filter(Trade.status == "closed").all()
+    db.close()
+    wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
+    total = len(closed)
+
+    # Get latest trade for recent_pnl
+    recent_pnl = None
+    if closed:
+        recent_pnl = closed[-1].pnl_pct
+
+    pos = status.get("position")
+    position_data = None
+    if pos:
+        price = status.get("last_price", 0)
+        entry = pos["entry_price"]
+        raw_pnl = ((price - entry) / entry) * 100
+        if pos["side"] == "sell":
+            raw_pnl = -raw_pnl
+        position_data = {
+            "side": pos["side"],
+            "entry_price": pos["entry_price"],
+            "unrealized_pnl": round(raw_pnl, 2),
+        }
+
+    market_data = {
+        "price": status.get("last_price"),
+        "rsi": indicators.get("rsi"),
+        "ema_short": indicators.get("ema_short"),
+        "ema_long": indicators.get("ema_long"),
+        "position": position_data,
+        "balance": status.get("balance_usdt"),
+        "total_trades": total,
+        "win_rate": wins / total if total > 0 else 0,
+        "recent_pnl": recent_pnl,
+        "consecutive_losses": status.get("consecutive_losses", 0),
+    }
+
+    analysis = await generate_analysis(market_data)
+    return {"analysis": analysis}
 
 
 @app.websocket("/ws")

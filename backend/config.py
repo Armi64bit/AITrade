@@ -9,6 +9,7 @@ load_dotenv()
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
 BINANCE_SECRET_KEY = os.getenv("BINANCE_SECRET_KEY")
 BINANCE_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() == "true"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 SYMBOL = "BTC/USDT"
 STABLE_COIN = "USDT"

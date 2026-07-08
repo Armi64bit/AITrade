@@ -80,4 +80,5 @@ export const api = {
   getSymbols: () => get<string[]>("/symbols"),
   setSymbol: (symbol: string) => post<{ symbol: string }>("/symbol", { symbol }),
   getAIInsights: () => get<{ messages: string[]; recommended_pair: string; suggest_optimize: boolean; position_status: string; expected_next_trade: number | null; expected_profit_24h: number | null; current_pnl: number | null }>("/ai-insights"),
+  getDeepAnalysis: () => get<{ analysis: string | null }>("/ai-deep-analysis"),
 };

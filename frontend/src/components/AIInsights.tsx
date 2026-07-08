@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "../api/client";
 
 interface AIResponse {
@@ -13,7 +13,9 @@ interface AIResponse {
 
 export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
   const [data, setData] = useState<AIResponse | null>(null);
+  const [deepAnalysis, setDeepAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deepLoading, setDeepLoading] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -27,6 +29,20 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
     const id = setInterval(fetch, 8000);
     return () => clearInterval(id);
   }, []);
+
+  const fetchDeep = useCallback(async () => {
+    setDeepLoading(true);
+    try {
+      const d = await api.getDeepAnalysis();
+      if (d.analysis) setDeepAnalysis(d.analysis);
+    } catch {}
+    setDeepLoading(false);
+  }, []);
+
+  // Auto-fetch deep analysis once on mount
+  useEffect(() => {
+    fetchDeep();
+  }, [fetchDeep]);
 
   if (loading && !data) {
     return (
@@ -77,6 +93,21 @@ export function AIInsights({ onOptimize }: { onOptimize: () => void }) {
           </div>
         )}
       </div>
+
+      {/* Deep AI analysis */}
+      {deepAnalysis && (
+        <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-purple-900/30 to-cyan-900/30 border border-purple-500/20">
+          <div className="text-xs text-purple-400 uppercase tracking-wider mb-1">AI Market Summary</div>
+          <div className="text-sm text-slate-200">{deepAnalysis}</div>
+          <button
+            onClick={fetchDeep}
+            disabled={deepLoading}
+            className="mt-2 text-xs text-purple-400 hover:text-purple-300 disabled:text-slate-600 transition-colors cursor-pointer"
+          >
+            {deepLoading ? "Thinking..." : "Refresh analysis"}
+          </button>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="space-y-2 mb-3 max-h-64 overflow-y-auto">
