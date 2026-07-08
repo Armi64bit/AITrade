@@ -28,6 +28,7 @@ export default function App() {
   const [symbol, setSymbol] = useState(() => localStorage.getItem(LS_KEY) || "BTC/USDT");
   const [changingSymbol, setChangingSymbol] = useState(false);
   const [showStopDialog, setShowStopDialog] = useState(false);
+  const [pendingOptimize, setPendingOptimize] = useState(false);
 
   useTradeSounds(trades);
 
@@ -68,8 +69,39 @@ export default function App() {
   };
 
   const handleStart = async () => { await api.startBot(); };
-  const stopNow = async () => { setShowStopDialog(false); await api.stopBot("now"); };
-  const stopAfterTrade = async () => { setShowStopDialog(false); await api.stopBot("after_trade"); };
+
+  const doOptimize = async () => {
+    setOptimizing(true);
+    try {
+      const result = await api.optimize(500);
+      setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
+    } catch {}
+    setOptimizing(false);
+  };
+
+  const stopNow = async () => {
+    setShowStopDialog(false);
+    await api.stopBot("now");
+    if (pendingOptimize) {
+      setPendingOptimize(false);
+      await doOptimize();
+    }
+  };
+
+  const stopAfterTrade = async () => {
+    setShowStopDialog(false);
+    await api.stopBot("after_trade");
+    if (pendingOptimize) {
+      setPendingOptimize(false);
+      await doOptimize();
+    }
+  };
+
+  const cancelDialog = () => {
+    setShowStopDialog(false);
+    setPendingOptimize(false);
+  };
+
   const handleStop = () => {
     if (status?.position) {
       setShowStopDialog(true);
@@ -77,13 +109,14 @@ export default function App() {
       api.stopBot("now");
     }
   };
-  const handleOptimize = async () => {
-    setOptimizing(true);
-    try {
-      const result = await api.optimize(500);
-      setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
-    } catch {}
-    setOptimizing(false);
+
+  const handleOptimize = () => {
+    if (status?.position) {
+      setShowStopDialog(true);
+      setPendingOptimize(true);
+    } else {
+      doOptimize();
+    }
   };
 
   const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null, total_trades?: number, wins?: number, losses?: number) => {
@@ -130,7 +163,8 @@ export default function App() {
         <StopDialog
           onStopNow={stopNow}
           onStopAfterTrade={stopAfterTrade}
-          onCancel={() => setShowStopDialog(false)}
+          onCancel={cancelDialog}
+          pendingOptimize={pendingOptimize}
         />
       )}
     </div>
