@@ -59,6 +59,15 @@ async function post<T>(path: string, body?: any): Promise<T> {
   return res.json();
 }
 
+export interface Candle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export const api = {
   getStatus: () => get<BotStatus>("/status"),
   startBot: () => post<{ status: string }>("/start"),
@@ -67,4 +76,7 @@ export const api = {
   getStrategy: () => get<StrategyInfo>("/strategy"),
   optimize: (nTrials = 100) => post<{ params: Record<string, number>; sharpe_ratio: number }>("/optimize", { n_trials: nTrials }),
   getPerformance: () => get<Performance>("/performance"),
+  getCandles: () => get<Candle[]>("/candles"),
+  getSymbols: () => get<string[]>("/symbols"),
+  setSymbol: (symbol: string) => post<{ symbol: string }>("/symbol", { symbol }),
 };

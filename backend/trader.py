@@ -30,6 +30,14 @@ class BinanceTrader:
         self._sim_balance = INITIAL_BALANCE
         self._sim_time = time.time()
 
+    async def set_symbol(self, symbol: str):
+        self.symbol = symbol
+        self.df = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+        self.position = None
+        self._data_loaded = False
+        self._use_simulated = False
+        await self.load_data()
+
     async def load_data(self):
         if not self._data_loaded:
             ok = await self._load_history()

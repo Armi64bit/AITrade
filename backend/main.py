@@ -147,6 +147,53 @@ async def get_performance():
     )
 
 
+@app.get("/api/candles")
+async def get_candles():
+    if not trader:
+        return []
+    df = trader.df
+    if len(df) == 0:
+        return []
+    return [
+        {"time": int(row["time"]), "open": float(row["open"]), "high": float(row["high"]),
+         "low": float(row["low"]), "close": float(row["close"]), "volume": float(row["volume"])}
+        for _, row in df.iterrows()
+    ]
+
+
+SYMBOLS = ["BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT",
+           "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT",
+           "MATIC/USDT", "UNI/USDT", "ATOM/USDT", "LTC/USDT", "BCH/USDT"]
+
+
+@app.get("/api/symbols")
+async def get_symbols():
+    return SYMBOLS
+
+
+class SymbolRequest(BaseModel):
+    symbol: str
+
+
+@app.post("/api/symbol")
+async def set_symbol(req: SymbolRequest):
+    global trader
+    if not trader:
+        return {"error": "Trader not initialized"}
+    symbol = req.symbol.upper()
+    if "/" not in symbol:
+        symbol = symbol + "/USDT"
+    if symbol not in SYMBOLS:
+        return {"error": f"Unsupported symbol: {symbol}"}
+    if trader.running:
+        trader.stop()
+        await asyncio.sleep(1)
+    await trader.set_symbol(symbol)
+    if trader.running:
+        asyncio.create_task(trader.start())
+    return {"symbol": symbol}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
