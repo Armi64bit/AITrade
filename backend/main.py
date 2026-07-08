@@ -6,7 +6,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS
+from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS
 from trader import BinanceTrader
 from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
@@ -218,11 +218,6 @@ async def get_candles():
     ]
 
 
-SYMBOLS = ["BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT",
-           "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT",
-           "MATIC/USDT", "UNI/USDT", "ATOM/USDT", "LTC/USDT", "BCH/USDT"]
-
-
 @app.get("/api/symbols")
 async def get_symbols():
     return SYMBOLS
@@ -263,6 +258,10 @@ async def ai_insights():
         df = trader.df
 
         messages = []
+        switch_msg = status.get("last_pair_switch_msg")
+        if switch_msg:
+            messages.append(f"🔄 {switch_msg}")
+
         rsi = indicators.get("rsi")
         ema_s = indicators.get("ema_short")
         ema_l = indicators.get("ema_long")

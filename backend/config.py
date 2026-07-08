@@ -24,6 +24,10 @@ TRADE_CONFIG = {
     "retrain_interval_trades": 5,
 }
 
+SYMBOLS = ["BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT",
+           "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT",
+           "MATIC/USDT", "UNI/USDT", "ATOM/USDT", "LTC/USDT", "BCH/USDT"]
+
 STRATEGY_DEFAULTS = {
     "ema_short": 7,
     "ema_long": 25,

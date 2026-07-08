@@ -33,6 +33,7 @@ export function Controls({ status, onStart, onStop, symbol }: {
   const rsi = status?.indicators?.rsi;
   const sym = symbol || "BTC/USDT";
   const stoppingAfterTrade = status?.stop_after_trade ?? false;
+  const switchMsg = status?.last_pair_switch_msg;
 
   return (
     <div className="card">
@@ -42,6 +43,11 @@ export function Controls({ status, onStart, onStop, symbol }: {
           {stoppingAfterTrade && (
             <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
               Stopping soon
+            </span>
+          )}
+          {switchMsg && (
+            <span className="text-xs text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/30 animate-pulse">
+              Auto-switch
             </span>
           )}
           <span className={`w-2 h-2 rounded-full ${running ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`} />

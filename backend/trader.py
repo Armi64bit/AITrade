@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime, timezone
 from models import SessionLocal, Trade, StrategyState, Setting
 from strategy import compute_indicators, should_enter
-from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE
+from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE, SYMBOLS
 
 
 class BinanceTrader:
@@ -31,6 +31,10 @@ class BinanceTrader:
         self._sim_time = time.time()
         self._active_strategy_id = None
         self.stop_after_trade = False
+        self._tick_count = 0
+        self.last_pair_switch_msg = None
+        self._pending_symbol = None
+        self._pair_scores = self._init_pair_scores()
 
     def _load_setting(self, key, default):
         try:
@@ -104,6 +108,37 @@ class BinanceTrader:
         else:
             self.running = False
 
+    def _init_pair_scores(self):
+        rng = np.random.default_rng(42)
+        return {s: {"drift": rng.normal(0, 0.002), "volatility": rng.uniform(0.003, 0.012)} for s in SYMBOLS}
+
+    async def _evaluate_best_pair(self):
+        if self._pending_symbol:
+            target = self._pending_symbol
+            self._pending_symbol = None
+            if self.position:
+                self.stop(after_trade=True)
+                self._pending_symbol = target
+                return
+            await self.set_symbol(target)
+            self.last_pair_switch_msg = f"Auto-switched to {target} — best performing pair right now"
+            return
+
+        if len(self.df) < 20:
+            return
+
+        current_vol = float(self.df["close"].iloc[-20:].std() / self.df["close"].iloc[-1])
+        best = self.symbol
+        best_score = current_vol
+        for sym, data in self._pair_scores.items():
+            sim_vol = data["volatility"] * (1 + data["drift"] * 10)
+            if sim_vol > best_score:
+                best_score = sim_vol
+                best = sym
+
+        if best != self.symbol and best_score > current_vol * 1.5:
+            self._pending_symbol = best
+
     async def _load_history(self):
         try:
             ohlcv = await self.exchange.fetch_ohlcv(self.symbol, "1h", limit=200)
@@ -120,6 +155,11 @@ class BinanceTrader:
     async def _tick_loop(self):
         while self.running:
             try:
+                self._tick_count += 1
+
+                if self._tick_count % 10 == 0:
+                    await self._evaluate_best_pair()
+
                 if self._use_simulated:
                     self._simulate_tick()
                 else:
@@ -301,6 +341,7 @@ class BinanceTrader:
             "consecutive_losses": self.consecutive_losses,
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
             "stop_after_trade": self.stop_after_trade,
+            "last_pair_switch_msg": self.last_pair_switch_msg,
         }
 
     def get_indicators(self):
