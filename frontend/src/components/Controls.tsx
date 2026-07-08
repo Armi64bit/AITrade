@@ -8,8 +8,6 @@ export function Controls({ status, onStart, onStop }: {
   const running = status?.running ?? false;
   const price = status?.last_price;
   const rsi = status?.indicators?.rsi;
-  const emaS = status?.indicators?.ema_short;
-  const emaL = status?.indicators?.ema_long;
 
   return (
     <div className="card">
