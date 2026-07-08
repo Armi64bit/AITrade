@@ -1,5 +1,7 @@
 import asyncio
 import time
+import json
+import urllib.request
 import ccxt.async_support as ccxt
 import pandas as pd
 import numpy as np
@@ -216,7 +218,24 @@ class BinanceTrader:
             self._sim_price = self.df["close"].iloc[-1]
             return True
         except Exception as e:
-            print(f"History load error: {e}")
+            print(f"History load error via ccxt: {e}")
+        # Fallback: Binance public REST API (no exchange object needed)
+        try:
+            symbol = self.symbol.replace("/", "")
+            url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1h&limit=200"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            rows = []
+            for o in data:
+                rows.append({"time": int(o[0]), "open": float(o[1]), "high": float(o[2]), "low": float(o[3]), "close": float(o[4]), "volume": float(o[5])})
+            self.df = pd.DataFrame(rows)
+            self._sim_price = self.df["close"].iloc[-1]
+            self._use_simulated = False
+            print(f"Loaded {len(rows)} candles from Binance public API")
+            return True
+        except Exception as e2:
+            print(f"History load error via public API: {e2}")
             return False
 
     async def _tick_loop(self):
@@ -265,15 +284,27 @@ class BinanceTrader:
             self.df = self.df.iloc[-500:]
 
     async def _real_tick(self):
-        ticker = await self.exchange.fetch_ticker(self.symbol)
-        new_row = {
-            "time": ticker["timestamp"],
-            "open": ticker["open"],
-            "high": ticker["high"],
-            "low": ticker["low"],
-            "close": ticker["last"],
-            "volume": ticker["baseVolume"],
-        }
+        try:
+            ticker = await self.exchange.fetch_ticker(self.symbol)
+            self._add_tick(ticker["timestamp"], ticker["open"], ticker["high"], ticker["low"], ticker["last"], ticker["baseVolume"])
+            return
+        except Exception as e:
+            print(f"Real tick via ccxt failed: {e}")
+        # Fallback: Binance public REST API
+        try:
+            symbol = self.symbol.replace("/", "")
+            url = f"https://api.binance.com/api/v3/ticker?symbol={symbol}"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                t = json.loads(resp.read().decode())
+            price = float(t["lastPrice"])
+            self._add_tick(int(time.time() * 1000), price, price, price, price, 0)
+        except Exception as e:
+            print(f"Real tick via public API failed: {e}")
+            self._simulate_tick()
+
+    def _add_tick(self, ts, open_p, high, low, close, volume):
+        new_row = {"time": ts, "open": open_p, "high": high, "low": low, "close": close, "volume": volume}
         self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
         if len(self.df) > 500:
             self.df = self.df.iloc[-500:]
