@@ -1,12 +1,15 @@
 const TND_RATE = 3.0;
 
+function fmt(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function usd(v: number): string {
-  return `$${v.toFixed(2)}`;
+  return `$${fmt(v)}`;
 }
 
 export function tnd(v: number): string {
-  const val = v * TND_RATE;
-  return `${val.toFixed(2)} TND`;
+  return `${fmt(v * TND_RATE)} TND`;
 }
 
 export function money(v: number): string {

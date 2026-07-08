@@ -206,13 +206,17 @@ async def set_symbol(req: SymbolRequest):
 @app.get("/api/ai-insights")
 async def ai_insights():
     if not trader:
-        return {"messages": [], "recommended_pair": "BTC/USDT", "suggest_optimize": False}
+        return {"messages": [], "recommended_pair": "BTC/USDT", "suggest_optimize": False,
+                "position_status": "idle", "expected_next_trade": None, "expected_profit_24h": None}
+
     status = await trader.get_status()
     indicators = trader.get_indicators()
     df = trader.df
 
     db = SessionLocal()
-    recent = db.query(Trade).order_by(Trade.id.desc()).limit(10).all()
+    all_closed = db.query(Trade).filter(Trade.status == "closed").all()
+    recent_trades = db.query(Trade).order_by(Trade.id.desc()).limit(10).all()
+    active_state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
     db.close()
 
     messages = []
@@ -224,73 +228,117 @@ async def ai_insights():
     consec_losses = status.get("consecutive_losses", 0)
     position = status.get("position")
 
-    # Market trend
-    if ema_s is not None and ema_l is not None:
-        if ema_s > ema_l:
-            diff_pct = ((ema_s - ema_l) / ema_l) * 100
-            if diff_pct > 2:
-                messages.append(f"Strong bullish trend — fast EMA is {diff_pct:.1f}% above slow EMA.")
-            else:
-                messages.append(f"Bullish trend — fast EMA is {diff_pct:.1f}% above slow EMA.")
-        else:
-            diff_pct = ((ema_l - ema_s) / ema_l) * 100
-            if diff_pct > 2:
-                messages.append(f"Strong bearish trend — fast EMA is {diff_pct:.1f}% below slow EMA.")
-            else:
-                messages.append(f"Bearish trend — fast EMA is {diff_pct:.1f}% below slow EMA.")
+    # --- Compute historical stats ---
+    closed = [t for t in all_closed if t.pnl is not None]
+    avg_return = 0.0
+    avg_duration_hours = 0.0
+    trades_per_day = 0.0
+    win_rate = 0.0
+    wins = 0
+    losses = 0
 
-    # RSI
+    if closed:
+        wins = sum(1 for t in closed if t.pnl > 0)
+        losses = sum(1 for t in closed if t.pnl <= 0)
+        total = wins + losses
+        win_rate = wins / total if total > 0 else 0
+        avg_return = np.mean([t.pnl_pct for t in closed]) if closed else 0
+        durations = []
+        for t in closed:
+            if t.entry_time and t.exit_time:
+                delta = (t.exit_time - t.entry_time).total_seconds() / 3600
+                durations.append(delta)
+        avg_duration_hours = np.mean(durations) if durations else 2
+        total_timed = max((closed[-1].exit_time - closed[0].entry_time).total_seconds() / 3600, 1) if len(closed) > 1 else 24
+        trades_per_day = len(closed) / (total_timed / 24)
+
+    trades_per_day = max(trades_per_day, 0.5)
+    avg_duration_hours = max(avg_duration_hours, 0.5)
+
+    expected_profit_24h = avg_return * trades_per_day * 100 if trades_per_day > 0 else None
+    expected_profit_7d = expected_profit_24h * 7 if expected_profit_24h else None
+    expected_profit_30d = expected_profit_24h * 30 if expected_profit_24h else None
+    hours_to_next_trade = (1.0 / trades_per_day * 24) if trades_per_day > 0 else None
+
+    # Trend — simple language
+    trend = "neutral"
+    if ema_s is not None and ema_l is not None:
+        diff_pct = abs(ema_s - ema_l) / ema_l * 100
+        if ema_s > ema_l:
+            trend = "bullish"
+            if diff_pct > 2:
+                messages.append(f"📈 Price is in a strong uptrend — fast average is {diff_pct:.1f}% above slow average. Good time to look for buys.")
+            else:
+                messages.append(f"📈 Price is moving up — fast average is {diff_pct:.1f}% above slow average.")
+        else:
+            trend = "bearish"
+            if diff_pct > 2:
+                messages.append(f"📉 Price is in a strong downtrend — fast average is {diff_pct:.1f}% below slow average. Better to wait or sell.")
+            else:
+                messages.append(f"📉 Price is moving down — fast average is {diff_pct:.1f}% below slow average.")
+
+    # RSI — simple language
     if rsi is not None:
         if rsi >= 70:
-            messages.append(f"RSI at {rsi:.1f} — market is overbought. Possible price drop ahead.")
+            messages.append(f"⚠️ RSI is {rsi:.0f} — the market is overheated. Price might drop soon. Be careful buying.")
         elif rsi <= 30:
-            messages.append(f"RSI at {rsi:.1f} — market is oversold. Possible price bounce ahead.")
+            messages.append(f"💡 RSI is {rsi:.0f} — the market is oversold. Price might bounce up soon. Look for buy signals.")
         elif rsi > 60:
-            messages.append(f"RSI at {rsi:.1f} — moderate bullish momentum.")
+            messages.append(f"📊 RSI is {rsi:.0f} — buyers are in control but not extreme. Steady bullish.")
         elif rsi < 40:
-            messages.append(f"RSI at {rsi:.1f} — moderate bearish momentum.")
+            messages.append(f"📊 RSI is {rsi:.0f} — sellers are in control but not extreme. Steady bearish.")
         else:
-            messages.append(f"RSI at {rsi:.1f} — neutral range, no strong direction.")
+            messages.append(f"📊 RSI is {rsi:.0f} — neutral market. No clear direction yet.")
 
     # Position
     if position:
         side = position["side"]
         entry = position["entry_price"]
-        pnl = ((price - entry) / entry) * 100
+        raw_pnl = ((price - entry) / entry) * 100
         if side == "sell":
-            pnl = -pnl
-        direction = "profit" if pnl >= 0 else "loss"
-        messages.append(f"Currently in a {side.upper()} position entered at ${entry:.2f}. "
-                        f"Unrealized P&L: {pnl:+.2f}% ({direction}).")
+            raw_pnl = -raw_pnl
+        direction = "profit" if raw_pnl >= 0 else "loss"
+        msg = f"🎯 Currently in a **{side.upper()}** position entered at ${entry:,.2f}. Currently {raw_pnl:+.2f}% ({direction})."
+        # Add expected remaining time based on avg trade duration
+        if avg_duration_hours:
+            msg += f" Average trade lasts {avg_duration_hours:.1f}h."
+        messages.append(msg)
     else:
         if running:
-            messages.append("No open position — waiting for a good entry signal.")
+            msg = "🔍 No position open. Waiting for the right moment to enter."
+            if hours_to_next_trade:
+                msg += f" Next trade expected in about {hours_to_next_trade:.0f}h."
+            messages.append(msg)
 
-    # Recent trades summary
-    closed = [t for t in recent if t.status == "closed"]
-    if closed:
-        wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
-        losses = sum(1 for t in closed if t.pnl and t.pnl <= 0)
-        if wins > 0 or losses > 0:
-            total = wins + losses
-            rate = (wins / total) * 100
-            messages.append(f"Recent {total} trades: {wins} wins, {losses} losses ({rate:.0f}% win rate).")
+    # Recent performance — simple
+    if win_rate > 0:
+        label = "excellent" if win_rate >= 0.7 else "good" if win_rate >= 0.5 else "needs improvement"
+        messages.append(f"📈 Recent performance: {wins} wins, {losses} losses ({win_rate*100:.0f}% win rate) — {label}.")
+        if avg_return != 0:
+            messages.append(f"💰 Average return per trade: {avg_return*100:+.2f}%. Each trade lasts about {avg_duration_hours:.1f}h on average.")
 
-    # Consecutive losses → suggest optimize
+    # Expected profit
+    if expected_profit_24h is not None:
+        if expected_profit_24h >= 0:
+            messages.append(f"📊 If things continue like this, expected profit is +{expected_profit_24h:.1f}% in 24h, +{expected_profit_7d:.1f}% in 7 days, +{expected_profit_30d:.1f}% in 30 days.")
+        else:
+            messages.append(f"📊 If things continue like this, expected result is {expected_profit_24h:.1f}% in 24h ({expected_profit_7d:.1f}% in 7 days). Consider optimizing.")
+
+    # Consecutive losses
     suggest_optimize = consec_losses >= 2
     if suggest_optimize:
-        messages.append(f"⚠️ {consec_losses} consecutive losses detected. Consider clicking Auto-Optimize to adjust strategy.")
+        messages.append(f"⚠️ {consec_losses} losses in a row — the strategy isn't working well right now. Click Auto-Optimize to find better settings.")
 
     # Next action
     if running:
         if position:
-            messages.append("Monitoring position for exit signals (stop-loss, take-profit, or trend reversal).")
+            messages.append("⏳ Watching for exit signal — will close when price hits target or trend reverses.")
         else:
-            messages.append("Scanning for entry signals based on EMA crossover and RSI conditions.")
+            messages.append("⏳ Scanning for entry signal — will buy when conditions are right.")
     else:
-        messages.append("Bot is stopped. Click Start to begin trading.")
+        messages.append("⏹️ Bot is stopped. Click Start to begin trading.")
 
-    # Pair recommendation based on recent volatility
+    # Pair recommendation
     recommended_pair = "SOL/USDT"
     if len(df) > 20:
         closes = df["close"].values[-20:]
@@ -303,10 +351,27 @@ async def ai_insights():
         else:
             recommended_pair = volatile_pairs[3]
 
+    # Position status for the top bar
+    if position:
+        pos_side = position["side"].upper()
+        entry = position["entry_price"]
+        raw_pnl = ((price - entry) / entry) * 100
+        if position["side"] == "sell":
+            raw_pnl = -raw_pnl
+        position_status = f"IN {pos_side}"
+        remaining_hours = max(avg_duration_hours - (avg_duration_hours * 0.3), 0.5)
+    else:
+        position_status = "SEARCHING"
+        remaining_hours = None
+
     return {
         "messages": messages,
         "recommended_pair": recommended_pair,
         "suggest_optimize": suggest_optimize,
+        "position_status": position_status,
+        "expected_next_trade": round(hours_to_next_trade, 1) if hours_to_next_trade else None,
+        "expected_profit_24h": round(expected_profit_24h, 1) if expected_profit_24h else None,
+        "current_pnl": round(raw_pnl, 2) if position else None,
     }
 
 
