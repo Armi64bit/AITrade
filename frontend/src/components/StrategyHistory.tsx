@@ -40,8 +40,6 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
     setActivating(null);
   };
 
-  const activeEntry = history.find((h) => h.is_active);
-
   if (loading) return null;
 
   return (
