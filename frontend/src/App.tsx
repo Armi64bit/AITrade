@@ -31,16 +31,10 @@ export default function App() {
   useEffect(() => { api.getTrades().then(setTrades); }, []);
   useEffect(() => { api.getStrategy().then(setStrategy); }, []);
 
-  const fetchCandles = useCallback(async () => {
-    try {
-      const c = await api.getCandles();
-      if (c.length > 0) setCandles(c);
-    } catch {}
-  }, []);
-
   const pollAll = useCallback(async () => {
     try {
-      const [s, p, t] = await Promise.all([api.getStatus(), api.getPerformance(), api.getTrades()]);
+      const [c, s, p, t] = await Promise.all([api.getCandles(), api.getStatus(), api.getPerformance(), api.getTrades()]);
+      if (c.length > 0) setCandles(c);
       setRestStatus(s);
       setPerf(p);
       setTrades(t);
@@ -48,11 +42,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchCandles();
     pollAll();
     const id = setInterval(pollAll, 5000);
     return () => clearInterval(id);
-  }, [fetchCandles, pollAll]);
+  }, [pollAll]);
 
   const handleSymbolChange = async (s: string) => {
     setChangingSymbol(true);
@@ -60,7 +53,7 @@ export default function App() {
       await api.setSymbol(s);
       setSymbol(s);
       localStorage.setItem(LS_KEY, s);
-      await fetchCandles();
+      await pollAll();
     } catch {}
     setChangingSymbol(false);
   };
