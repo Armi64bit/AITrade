@@ -63,9 +63,9 @@ async def start_bot():
 
 
 @app.post("/api/stop")
-async def stop_bot():
+async def stop_bot(mode: str = "now"):
     if trader:
-        trader.stop()
+        trader.stop(after_trade=(mode == "after_trade"))
         return {"status": "stopped"}
     return {"status": "error"}
 

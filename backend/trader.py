@@ -30,6 +30,7 @@ class BinanceTrader:
         self._sim_balance = INITIAL_BALANCE
         self._sim_time = time.time()
         self._active_strategy_id = None
+        self.stop_after_trade = False
 
     def _load_setting(self, key, default):
         try:
@@ -96,8 +97,12 @@ class BinanceTrader:
             self._data_loaded = True
         asyncio.create_task(self._tick_loop())
 
-    def stop(self):
-        self.running = False
+    def stop(self, after_trade=False):
+        self.stop_after_trade = False
+        if after_trade and self.position:
+            self.stop_after_trade = True
+        else:
+            self.running = False
 
     async def _load_history(self):
         try:
@@ -264,6 +269,9 @@ class BinanceTrader:
                 self.consecutive_losses = 0
             self.position = None
             self._current_trade_db_id = None
+            if self.stop_after_trade:
+                self.running = False
+                self.stop_after_trade = False
         except Exception as e:
             print(f"Close trade error: {e}")
 
@@ -292,6 +300,7 @@ class BinanceTrader:
             "position": self.position,
             "consecutive_losses": self.consecutive_losses,
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
+            "stop_after_trade": self.stop_after_trade,
         }
 
     def get_indicators(self):

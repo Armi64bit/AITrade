@@ -6,6 +6,7 @@ export interface BotStatus {
   position: any;
   consecutive_losses: number;
   last_price: number | null;
+  stop_after_trade: boolean;
   indicators: {
     ema_short: number | null;
     ema_long: number | null;
@@ -71,7 +72,7 @@ export interface Candle {
 export const api = {
   getStatus: () => get<BotStatus>("/status"),
   startBot: () => post<{ status: string }>("/start"),
-  stopBot: () => post<{ status: string }>("/stop"),
+  stopBot: (mode = "now") => post<{ status: string }>(`/stop?mode=${mode}`),
   getTrades: (limit = 50) => get<Trade[]>(`/trades?limit=${limit}`),
   getStrategy: () => get<StrategyInfo>("/strategy"),
   optimize: (nTrials = 500) => post<{ params: Record<string, number>; sharpe_ratio: number }>("/optimize", { n_trials: nTrials }),

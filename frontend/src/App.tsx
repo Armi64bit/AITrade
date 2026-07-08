@@ -10,6 +10,7 @@ import { StrategyPanel } from "./components/StrategyPanel";
 import { Controls } from "./components/Controls";
 import { AIInsights } from "./components/AIInsights";
 import { StrategyHistory } from "./components/StrategyHistory";
+import { StopDialog } from "./components/StopDialog";
 
 const LS_KEY = "aitrader_symbol";
 
@@ -23,6 +24,7 @@ export default function App() {
   const [restStatus, setRestStatus] = useState<BotStatus | null>(null);
   const [symbol, setSymbol] = useState(() => localStorage.getItem(LS_KEY) || "BTC/USDT");
   const [changingSymbol, setChangingSymbol] = useState(false);
+  const [showStopDialog, setShowStopDialog] = useState(false);
 
   useTradeSounds(trades);
 
@@ -66,7 +68,15 @@ export default function App() {
   };
 
   const handleStart = async () => { await api.startBot(); };
-  const handleStop = async () => { await api.stopBot(); };
+  const stopNow = async () => { setShowStopDialog(false); await api.stopBot("now"); };
+  const stopAfterTrade = async () => { setShowStopDialog(false); await api.stopBot("after_trade"); };
+  const handleStop = () => {
+    if (status?.position) {
+      setShowStopDialog(true);
+    } else {
+      api.stopBot("now");
+    }
+  };
   const handleOptimize = async () => {
     setOptimizing(true);
     try {
@@ -108,6 +118,14 @@ export default function App() {
       </div>
 
       <TradeLog trades={trades} />
+
+      {showStopDialog && (
+        <StopDialog
+          onStopNow={stopNow}
+          onStopAfterTrade={stopAfterTrade}
+          onCancel={() => setShowStopDialog(false)}
+        />
+      )}
     </div>
   );
 }

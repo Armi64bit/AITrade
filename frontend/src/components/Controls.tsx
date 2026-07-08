@@ -32,12 +32,18 @@ export function Controls({ status, onStart, onStop, symbol }: {
   const price = status?.last_price;
   const rsi = status?.indicators?.rsi;
   const sym = symbol || "BTC/USDT";
+  const stoppingAfterTrade = status?.stop_after_trade ?? false;
 
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-200">Bot Controls</h3>
         <div className="flex items-center gap-2">
+          {stoppingAfterTrade && (
+            <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
+              Stopping soon
+            </span>
+          )}
           <span className={`w-2 h-2 rounded-full ${running ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`} />
           <span className={`text-sm font-medium ${running ? "text-emerald-400" : "text-red-400"}`}>
             {running ? "Running" : "Stopped"}
