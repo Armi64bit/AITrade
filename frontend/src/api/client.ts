@@ -76,7 +76,7 @@ export const api = {
   stopBot: (mode = "now") => post<{ status: string }>(`/stop?mode=${mode}`),
   getTrades: (limit = 50) => get<Trade[]>(`/trades?limit=${limit}`),
   getStrategy: () => get<StrategyInfo>("/strategy"),
-  optimize: (nTrials = 500) => post<{ params: Record<string, number>; sharpe_ratio: number }>("/optimize", { n_trials: nTrials }),
+  optimize: (nTrials = 500) => post<{ params: Record<string, number>; sharpe_ratio: number; kept_existing?: boolean; current_sharpe?: number }>("/optimize", { n_trials: nTrials }),
   getPerformance: () => get<Performance>("/performance"),
   getCandles: () => get<Candle[]>("/candles"),
   getSymbols: () => get<string[]>("/symbols"),

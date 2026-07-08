@@ -202,14 +202,35 @@ async def optimize(req: OptimizeRequest):
     df = trader.df
     if len(df) < 50:
         return {"error": "Not enough data. Need at least 50 candles."}
+
+    # Get current strategy's Sharpe before optimizing
+    db = SessionLocal()
+    current_state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
+    current_sharpe = current_state.sharpe_ratio if current_state else None
+    db.close()
+
     trader.stop()
     await asyncio.sleep(1)
     trader._log_event("optimize", f"Manual optimization started ({req.n_trials} trials)")
     try:
         loop = asyncio.get_event_loop()
         params, sharpe = await loop.run_in_executor(None, run_optimization, df, req.n_trials)
+
+        # Only accept if Sharpe improved or this is the first strategy
+        if current_sharpe is not None and sharpe <= current_sharpe:
+            # Revert: deactivate new strategy, reactivate old one
+            db = SessionLocal()
+            db.query(StrategyState).filter(StrategyState.is_active == True).update({"is_active": False})
+            if current_state:
+                current_state.is_active = True
+                db.add(current_state)
+            db.commit()
+            db.close()
+            trader._log_event("optimize", f"Optimized Sharpe {sharpe:.3f} <= current {current_sharpe:.3f}, discarded")
+            return {"params": params, "sharpe_ratio": sharpe, "kept_existing": True, "current_sharpe": current_sharpe}
+
         trader._log_event("optimize", f"Optimization complete! Sharpe: {sharpe:.3f}")
-        return {"params": params, "sharpe_ratio": sharpe}
+        return {"params": params, "sharpe_ratio": sharpe, "kept_existing": False, "current_sharpe": current_sharpe}
     finally:
         await trader.start()
 

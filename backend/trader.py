@@ -132,8 +132,32 @@ class BinanceTrader:
         self.last_pair_switch_msg = "⚙️ Auto-optimizing strategy after 2 consecutive losses..."
         try:
             from optimizer import run_optimization
+            # Get current strategy's Sharpe and ID before optimizing
+            db = SessionLocal()
+            current_state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
+            current_sharpe = current_state.sharpe_ratio if current_state else None
+            current_id = current_state.id if current_state else None
+            db.close()
+
             loop = asyncio.get_event_loop()
             best_params, sharpe = await loop.run_in_executor(self._executor, run_optimization, self.df, 200)
+
+            # Only accept if Sharpe improved or this is the first strategy
+            if current_sharpe is not None and sharpe <= current_sharpe:
+                # Revert: deactivate the new strategy and reactivate the old one
+                db = SessionLocal()
+                db.query(StrategyState).filter(StrategyState.is_active == True).update({"is_active": False})
+                if current_id:
+                    old = db.query(StrategyState).filter(StrategyState.id == current_id).first()
+                    if old:
+                        old.is_active = True
+                db.commit()
+                db.close()
+                self.last_pair_switch_msg = f"⏸️ Optimized found Sharpe {sharpe:.3f} but current {current_sharpe:.3f} is better — kept existing strategy"
+                self._log_event("optimize", f"Optimized Sharpe {sharpe:.3f} <= current {current_sharpe:.3f}, kept existing")
+                self._optimizing = False
+                return
+
             self._active_strategy_id = None
             db = SessionLocal()
             active = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
@@ -220,7 +244,6 @@ class BinanceTrader:
             except Exception as e:
                 print(f"Tick error: {e}")
                 await asyncio.sleep(10)
-        await self.exchange.close()
 
     def _simulate_tick(self):
         change = np.random.normal(0, self._sim_price * 0.005)

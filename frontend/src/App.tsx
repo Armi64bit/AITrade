@@ -78,7 +78,9 @@ export default function App() {
     setOptimizing(true);
     try {
       const result = await api.optimize(500);
-      setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio, wins: 0, losses: 0, total_trades: 0 });
+      if (!result.kept_existing) {
+        setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio, wins: 0, losses: 0, total_trades: 0 });
+      }
     } catch {}
     setOptimizing(false);
   };
