@@ -126,7 +126,7 @@ async def get_strategy():
         db.close()
         return {"params": state.params, "sharpe_ratio": state.sharpe_ratio, "total_trades": len(closed), "wins": wins, "losses": losses}
     db.close()
-    return {"params": STRATEGY_DEFAULTS, "sharpe_ratio": None}
+    return {"params": STRATEGY_DEFAULTS, "sharpe_ratio": None, "total_trades": 0, "wins": 0, "losses": 0}
 
 
 @app.get("/api/strategy-history")

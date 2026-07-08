@@ -36,7 +36,7 @@ export default function App() {
   const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
-  useEffect(() => { api.getStrategy().then(s => { if (s) setStrategy(s); }); }, []);
+  useEffect(() => { api.getStrategy().then(s => { if (s?.wins !== undefined) setStrategy(s); }); }, []);
   useEffect(() => { fetchTndRate(); }, []);
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function App() {
     setOptimizing(true);
     try {
       const result = await api.optimize(500);
-      setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio });
+      setStrategy((prev) => prev ? { ...prev, ...result } : { params: result.params, sharpe_ratio: result.sharpe_ratio, wins: 0, losses: 0, total_trades: 0 });
     } catch {}
     setOptimizing(false);
   };
@@ -122,7 +122,7 @@ export default function App() {
     }
   };
 
-  const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null, total_trades?: number, wins?: number, losses?: number) => {
+  const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null, total_trades = 0, wins = 0, losses = 0) => {
     setStrategy({ params, sharpe_ratio: sharpe, total_trades, wins, losses });
   };
 
