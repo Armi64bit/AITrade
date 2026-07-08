@@ -133,13 +133,9 @@ async def get_performance():
     losses = sum(1 for t in trades if t.pnl and t.pnl <= 0)
     total_pnl = sum(t.pnl for t in trades if t.pnl) if trades else 0
 
-    balance = 0
     if trader:
-        try:
-            b = await trader.exchange.fetch_balance()
-            balance = b.get("USDT", {}).get("total", 0)
-        except Exception:
-            pass
+        s = await trader.get_status()
+        balance = s.get("balance_usdt", 0)
 
     return PerformanceResponse(
         total_trades=len(trades),
