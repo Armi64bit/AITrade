@@ -34,7 +34,7 @@ export default function App() {
   const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
-  useEffect(() => { api.getStrategy().then((s) => { if (s) setStrategy(s); }); }, []);
+  useEffect(() => { api.getStrategy().then((s) => { if (s && s.sharpe_ratio != null) setStrategy(s); }); }, []);
 
   useEffect(() => {
     if (strategy) localStorage.setItem(LS_STRATEGY, JSON.stringify(strategy));
@@ -86,8 +86,8 @@ export default function App() {
     setOptimizing(false);
   };
 
-  const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null) => {
-    setStrategy({ params, sharpe_ratio: sharpe });
+  const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null, total_trades?: number, wins?: number, losses?: number) => {
+    setStrategy({ params, sharpe_ratio: sharpe, total_trades, wins, losses });
   };
 
   return (

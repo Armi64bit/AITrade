@@ -19,7 +19,7 @@ export function RightSidebar({
   strategy: StrategyInfo | null;
   onOptimize: () => void;
   optimizing: boolean;
-  onActivateStrategy: (params: Record<string, number>, sharpe: number | null) => void;
+  onActivateStrategy: (params: Record<string, number>, sharpe: number | null, total_trades?: number, wins?: number, losses?: number) => void;
 }) {
   const [tab, setTab] = useState<Tab>(() => {
     const saved = localStorage.getItem(LS_TAB);
