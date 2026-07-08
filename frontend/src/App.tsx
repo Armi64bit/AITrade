@@ -11,11 +11,16 @@ import { RightSidebar } from "./components/RightSidebar";
 import { StopDialog } from "./components/StopDialog";
 
 const LS_KEY = "aitrader_symbol";
+const LS_STRATEGY = "aitrader_strategy";
 
 export default function App() {
   const wsStatus = useWebSocket();
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [strategy, setStrategy] = useState<StrategyInfo | null>(null);
+  const [strategy, setStrategy] = useState<StrategyInfo | null>(() => {
+    const saved = localStorage.getItem(LS_STRATEGY);
+    if (saved) try { return JSON.parse(saved); } catch {}
+    return null;
+  });
   const [perf, setPerf] = useState<Performance | null>(null);
   const [candles, setCandles] = useState<any[]>([]);
   const [optimizing, setOptimizing] = useState(false);
@@ -29,7 +34,11 @@ export default function App() {
   const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
-  useEffect(() => { api.getStrategy().then(setStrategy); }, []);
+  useEffect(() => { api.getStrategy().then((s) => { if (s) setStrategy(s); }); }, []);
+
+  useEffect(() => {
+    if (strategy) localStorage.setItem(LS_STRATEGY, JSON.stringify(strategy));
+  }, [strategy]);
 
   const pollAll = useCallback(async () => {
     try {
