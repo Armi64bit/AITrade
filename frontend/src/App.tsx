@@ -34,7 +34,6 @@ export default function App() {
   const status = restStatus ?? wsStatus;
 
   useEffect(() => { api.getTrades().then(setTrades); }, []);
-  useEffect(() => { api.getStrategy().then((s) => { if (s) setStrategy(s); }); }, []);
 
   useEffect(() => {
     if (strategy) localStorage.setItem(LS_STRATEGY, JSON.stringify(strategy));
@@ -42,11 +41,12 @@ export default function App() {
 
   const pollAll = useCallback(async () => {
     try {
-      const [c, s, p, t] = await Promise.all([api.getCandles(), api.getStatus(), api.getPerformance(), api.getTrades()]);
+      const [c, s, p, t, st] = await Promise.all([api.getCandles(), api.getStatus(), api.getPerformance(), api.getTrades(), api.getStrategy()]);
       if (c.length > 0) setCandles(c);
       setRestStatus(s);
       setPerf(p);
       setTrades(t);
+      if (st) setStrategy(st);
     } catch {}
   }, []);
 
