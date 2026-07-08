@@ -1,5 +1,6 @@
 import asyncio
 import json
+import numpy as np
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -199,6 +200,113 @@ async def set_symbol(req: SymbolRequest):
     if trader.running:
         asyncio.create_task(trader.start())
     return {"symbol": symbol}
+
+
+@app.get("/api/ai-insights")
+async def ai_insights():
+    if not trader:
+        return {"messages": [], "recommended_pair": "BTC/USDT", "suggest_optimize": False}
+    status = await trader.get_status()
+    indicators = trader.get_indicators()
+    df = trader.df
+
+    db = SessionLocal()
+    recent = db.query(Trade).order_by(Trade.id.desc()).limit(10).all()
+    db.close()
+
+    messages = []
+    rsi = indicators.get("rsi")
+    ema_s = indicators.get("ema_short")
+    ema_l = indicators.get("ema_long")
+    price = status.get("last_price")
+    running = status.get("running", False)
+    consec_losses = status.get("consecutive_losses", 0)
+    position = status.get("position")
+
+    # Market trend
+    if ema_s is not None and ema_l is not None:
+        if ema_s > ema_l:
+            diff_pct = ((ema_s - ema_l) / ema_l) * 100
+            if diff_pct > 2:
+                messages.append(f"Strong bullish trend — fast EMA is {diff_pct:.1f}% above slow EMA.")
+            else:
+                messages.append(f"Bullish trend — fast EMA is {diff_pct:.1f}% above slow EMA.")
+        else:
+            diff_pct = ((ema_l - ema_s) / ema_l) * 100
+            if diff_pct > 2:
+                messages.append(f"Strong bearish trend — fast EMA is {diff_pct:.1f}% below slow EMA.")
+            else:
+                messages.append(f"Bearish trend — fast EMA is {diff_pct:.1f}% below slow EMA.")
+
+    # RSI
+    if rsi is not None:
+        if rsi >= 70:
+            messages.append(f"RSI at {rsi:.1f} — market is overbought. Possible price drop ahead.")
+        elif rsi <= 30:
+            messages.append(f"RSI at {rsi:.1f} — market is oversold. Possible price bounce ahead.")
+        elif rsi > 60:
+            messages.append(f"RSI at {rsi:.1f} — moderate bullish momentum.")
+        elif rsi < 40:
+            messages.append(f"RSI at {rsi:.1f} — moderate bearish momentum.")
+        else:
+            messages.append(f"RSI at {rsi:.1f} — neutral range, no strong direction.")
+
+    # Position
+    if position:
+        side = position["side"]
+        entry = position["entry_price"]
+        pnl = ((price - entry) / entry) * 100
+        if side == "sell":
+            pnl = -pnl
+        direction = "profit" if pnl >= 0 else "loss"
+        messages.append(f"Currently in a {side.upper()} position entered at ${entry:.2f}. "
+                        f"Unrealized P&L: {pnl:+.2f}% ({direction}).")
+    else:
+        if running:
+            messages.append("No open position — waiting for a good entry signal.")
+
+    # Recent trades summary
+    closed = [t for t in recent if t.status == "closed"]
+    if closed:
+        wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
+        losses = sum(1 for t in closed if t.pnl and t.pnl <= 0)
+        if wins > 0 or losses > 0:
+            total = wins + losses
+            rate = (wins / total) * 100
+            messages.append(f"Recent {total} trades: {wins} wins, {losses} losses ({rate:.0f}% win rate).")
+
+    # Consecutive losses → suggest optimize
+    suggest_optimize = consec_losses >= 2
+    if suggest_optimize:
+        messages.append(f"⚠️ {consec_losses} consecutive losses detected. Consider clicking Auto-Optimize to adjust strategy.")
+
+    # Next action
+    if running:
+        if position:
+            messages.append("Monitoring position for exit signals (stop-loss, take-profit, or trend reversal).")
+        else:
+            messages.append("Scanning for entry signals based on EMA crossover and RSI conditions.")
+    else:
+        messages.append("Bot is stopped. Click Start to begin trading.")
+
+    # Pair recommendation based on recent volatility
+    recommended_pair = "SOL/USDT"
+    if len(df) > 20:
+        closes = df["close"].values[-20:]
+        volatility = np.std(closes[-20:] / closes[-21:-1] - 1) if len(closes) >= 21 else 0
+        volatile_pairs = ["SOL/USDT", "DOGE/USDT", "AVAX/USDT", "ETH/USDT", "BTC/USDT"]
+        if volatility > 0.02:
+            recommended_pair = volatile_pairs[0]
+        elif volatility > 0.015:
+            recommended_pair = volatile_pairs[1]
+        else:
+            recommended_pair = volatile_pairs[3]
+
+    return {
+        "messages": messages,
+        "recommended_pair": recommended_pair,
+        "suggest_optimize": suggest_optimize,
+    }
 
 
 @app.websocket("/ws")

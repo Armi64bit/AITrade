@@ -79,4 +79,5 @@ export const api = {
   getCandles: () => get<Candle[]>("/candles"),
   getSymbols: () => get<string[]>("/symbols"),
   setSymbol: (symbol: string) => post<{ symbol: string }>("/symbol", { symbol }),
+  getAIInsights: () => get<{ messages: string[]; recommended_pair: string; suggest_optimize: boolean }>("/ai-insights"),
 };

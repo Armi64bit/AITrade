@@ -8,6 +8,7 @@ import { SymbolSelector } from "./components/SymbolSelector";
 import { TradeLog } from "./components/TradeLog";
 import { StrategyPanel } from "./components/StrategyPanel";
 import { Controls } from "./components/Controls";
+import { AIInsights } from "./components/AIInsights";
 
 export default function App() {
   const wsStatus = useWebSocket();
@@ -87,8 +88,9 @@ export default function App() {
       <Dashboard perf={perf} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-4">
           <CandlestickChart data={candles} />
+          <AIInsights onOptimize={handleOptimize} />
         </div>
         <div className="space-y-4">
           <Controls status={status} onStart={handleStart} onStop={handleStop} />
