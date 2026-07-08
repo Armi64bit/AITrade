@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Boolean, JSON
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///./trades.db"
+import os
+DB_PATH = os.getenv("DB_PATH", "./trades.db")
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()

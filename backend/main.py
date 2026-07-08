@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG
+from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS
 from trader import BinanceTrader
 from models import SessionLocal, Trade, StrategyState
 from optimizer import run_optimization
@@ -18,6 +18,13 @@ trader = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global trader
+    db = SessionLocal()
+    active = db.query(StrategyState).filter(StrategyState.is_active == True).first()
+    if not active:
+        record = StrategyState(params=STRATEGY_DEFAULTS, sharpe_ratio=None, is_active=True)
+        db.add(record)
+        db.commit()
+    db.close()
     trader = BinanceTrader(BINANCE_API_KEY, BINANCE_SECRET_KEY, testnet=BINANCE_TESTNET)
     asyncio.create_task(trader.load_data())
     yield
@@ -91,7 +98,7 @@ async def get_strategy():
     db.close()
     if state:
         return {"params": state.params, "sharpe_ratio": state.sharpe_ratio, "total_trades": state.total_trades, "wins": state.wins, "losses": state.losses}
-    return {"params": {}, "sharpe_ratio": None}
+    return {"params": STRATEGY_DEFAULTS, "sharpe_ratio": None}
 
 
 class OptimizeRequest(BaseModel):

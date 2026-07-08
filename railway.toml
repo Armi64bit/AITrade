@@ -1,0 +1,12 @@
+[volumes]
+"data" = "/app/data"
+
+[build]
+# Python project — Nixpacks auto-detects
+
+[deploy]
+# Tell the app to store SQLite in the persistent volume
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+[env]
+DB_PATH = "/app/data/trades.db"
