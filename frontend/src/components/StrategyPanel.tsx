@@ -72,7 +72,10 @@ export function StrategyPanel({ strategy, onOptimize, optimizing }: {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-slate-200">Strategy</h3>
+        <h3 className="text-lg font-semibold text-slate-200 flex items-center gap-2">
+          Strategy
+          <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full font-semibold">ACTIVE</span>
+        </h3>
         <button
           onClick={onOptimize}
           disabled={optimizing}
