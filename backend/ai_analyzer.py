@@ -1,7 +1,7 @@
 from config import OPENROUTER_API_KEY
 
 client = None
-MODEL = "mistralai/mistral-7b-instruct:free"
+MODEL = "google/gemma-2-9b-it:free"
 
 if OPENROUTER_API_KEY:
     try:
