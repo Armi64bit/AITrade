@@ -14,6 +14,7 @@ export function CandlestickChart({ data }: { data: Candle[] }) {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const hasDataRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -74,7 +75,10 @@ export function CandlestickChart({ data }: { data: Candle[] }) {
     }));
     seriesRef.current.setData(candles);
     volumeRef.current.setData(volumes);
-    chartRef.current?.timeScale().fitContent();
+    if (!hasDataRef.current) {
+      chartRef.current?.timeScale().fitContent();
+      hasDataRef.current = true;
+    }
   }, [data]);
 
   return <div ref={containerRef} className="w-full rounded-lg overflow-hidden" />;
