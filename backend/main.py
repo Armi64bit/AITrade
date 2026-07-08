@@ -262,12 +262,6 @@ async def ai_insights():
         indicators = trader.get_indicators()
         df = trader.df
 
-        db = SessionLocal()
-        all_closed = db.query(Trade).filter(Trade.status == "closed").all()
-        recent_trades = db.query(Trade).order_by(Trade.id.desc()).limit(10).all()
-        active_state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
-        db.close()
-
         messages = []
         rsi = indicators.get("rsi")
         ema_s = indicators.get("ema_short")
@@ -276,33 +270,6 @@ async def ai_insights():
         running = status.get("running", False)
         consec_losses = status.get("consecutive_losses", 0)
         position = status.get("position")
-
-        closed = [t for t in all_closed if t.pnl is not None and t.pnl_pct is not None and t.entry_time and t.exit_time]
-        avg_return = 0.0
-        avg_duration_hours = 0.0
-        trades_per_day = 0.0
-        win_rate = 0.0
-        wins = 0
-        losses = 0
-
-        if closed:
-            wins = sum(1 for t in closed if t.pnl > 0)
-            losses = sum(1 for t in closed if t.pnl <= 0)
-            total = wins + losses
-            win_rate = wins / total if total > 0 else 0
-            avg_return = np.mean([t.pnl_pct for t in closed]) if closed else 0
-            durations = [(t.exit_time - t.entry_time).total_seconds() / 3600 for t in closed]
-            avg_duration_hours = np.mean(durations) if durations else 2
-            total_timed = max((closed[-1].exit_time - closed[0].entry_time).total_seconds() / 3600, 1) if len(closed) > 1 else 24
-            trades_per_day = len(closed) / (total_timed / 24)
-
-        trades_per_day = max(trades_per_day, 0.5)
-        avg_duration_hours = max(avg_duration_hours, 0.5)
-
-        expected_profit_24h = avg_return * trades_per_day * 100 if trades_per_day > 0 else None
-        expected_profit_7d = expected_profit_24h * 7 if expected_profit_24h else None
-        expected_profit_30d = expected_profit_24h * 30 if expected_profit_24h else None
-        hours_to_next_trade = (1.0 / trades_per_day * 24) if trades_per_day > 0 else None
 
         if ema_s is not None and ema_l is not None:
             diff_pct = abs(ema_s - ema_l) / ema_l * 100
@@ -336,31 +303,11 @@ async def ai_insights():
             if side == "sell":
                 raw_pnl = -raw_pnl
             msg = f"🎯 Currently in a {side.upper()} position entered at ${entry:,.2f}. Currently {raw_pnl:+.2f}% ({'profit' if raw_pnl >= 0 else 'loss'})."
-            if avg_duration_hours:
-                msg += f" Average trade lasts {avg_duration_hours:.1f}h."
             messages.append(msg)
         else:
             if running:
                 msg = "🔍 No position open. Waiting for the right moment to enter."
-                if hours_to_next_trade:
-                    msg += f" Next trade expected in about {hours_to_next_trade:.0f}h."
                 messages.append(msg)
-
-        if win_rate > 0:
-            label = "excellent" if win_rate >= 0.7 else "good" if win_rate >= 0.5 else "needs improvement"
-            messages.append(f"📈 Recent performance: {wins} wins, {losses} losses ({win_rate*100:.0f}% win rate) — {label}.")
-            if avg_return != 0:
-                messages.append(f"💰 Average return per trade: {avg_return*100:+.2f}%. Each trade lasts about {avg_duration_hours:.1f}h on average.")
-
-        if expected_profit_24h is not None:
-            if expected_profit_24h >= 0:
-                messages.append(f"📊 If things continue like this, expected profit is +{expected_profit_24h:.1f}% in 24h, +{expected_profit_7d:.1f}% in 7 days, +{expected_profit_30d:.1f}% in 30 days.")
-            else:
-                messages.append(f"📊 If things continue like this, expected result is {expected_profit_24h:.1f}% in 24h ({expected_profit_7d:.1f}% in 7 days). Consider optimizing.")
-
-        suggest_optimize = consec_losses >= 2
-        if suggest_optimize:
-            messages.append(f"⚠️ {consec_losses} losses in a row — the strategy isn't working well right now. Click Auto-Optimize to find better settings.")
 
         if running:
             if position:
@@ -395,15 +342,17 @@ async def ai_insights():
         return {
             "messages": messages,
             "recommended_pair": recommended_pair,
-            "suggest_optimize": suggest_optimize,
+            "suggest_optimize": consec_losses >= 2,
             "position_status": position_status,
-            "expected_next_trade": round(hours_to_next_trade, 1) if hours_to_next_trade else None,
-            "expected_profit_24h": round(expected_profit_24h, 1) if expected_profit_24h else None,
+            "expected_next_trade": None,
+            "expected_profit_24h": None,
             "current_pnl": round(raw_pnl, 2) if position else None,
         }
     except Exception as e:
-        import traceback; traceback.print_exc()
-        return {"messages": ["Market data is being loaded..."], "recommended_pair": "BTC/USDT",
+        import traceback
+        err = traceback.format_exc()
+        print(f"AI insights error:\n{err}")
+        return {"messages": [f"Waiting for data... ({type(e).__name__})"], "recommended_pair": "BTC/USDT",
                 "suggest_optimize": False, "position_status": "loading",
                 "expected_next_trade": None, "expected_profit_24h": None, "current_pnl": None}
 
