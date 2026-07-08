@@ -411,6 +411,7 @@ class BinanceTrader:
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
             "stop_after_trade": self.stop_after_trade,
             "last_pair_switch_msg": self.last_pair_switch_msg,
+            "use_simulated": self._use_simulated,
         }
 
     def get_indicators(self):

@@ -50,6 +50,11 @@ export function Controls({ status, onStart, onStop, symbol }: {
               Auto-switch
             </span>
           )}
+          {status?.use_simulated && running && (
+            <span className="text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/30">
+              SIMULATED
+            </span>
+          )}
           <span className={`w-2 h-2 rounded-full ${running ? "bg-emerald-400 animate-pulse" : "bg-red-500"}`} />
           <span className={`text-sm font-medium ${running ? "text-emerald-400" : "text-red-400"}`}>
             {running ? "Running" : "Stopped"}

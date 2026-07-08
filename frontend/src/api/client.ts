@@ -8,6 +8,7 @@ export interface BotStatus {
   last_price: number | null;
   stop_after_trade: boolean;
   last_pair_switch_msg: string | null;
+  use_simulated: boolean;
   indicators: {
     ema_short: number | null;
     ema_long: number | null;
