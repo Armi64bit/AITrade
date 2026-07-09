@@ -42,16 +42,16 @@ export function DailyPerformance({ trades }: { trades: Trade[] }) {
   }
 
   return (
-    <div className="space-y-2 text-sm">
+    <div className="w-full overflow-x-hidden space-y-2 text-sm">
       {days.map((day) => {
         const isOpen = expanded === day.date;
         return (
-          <div key={day.date} className="bg-slate-800/50 rounded overflow-hidden">
+          <div key={day.date} className="bg-slate-800/50 rounded-lg overflow-hidden">
             <button
               onClick={() => setExpanded(isOpen ? null : day.date)}
-              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-700/50 transition-colors cursor-pointer"
+              className="w-full flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 hover:bg-slate-700/50 transition-colors cursor-pointer"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
                 <span className="text-xs text-slate-400">{day.label}</span>
                 <span className={`text-xs font-medium ${day.totalPnl >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                   {day.totalPnl >= 0 ? "+" : ""}{day.totalPnl.toFixed(2)} USD
@@ -67,12 +67,12 @@ export function DailyPerformance({ trades }: { trades: Trade[] }) {
             {isOpen && (
               <div className="px-3 pb-2 space-y-1">
                 {day.trades.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between text-xs px-2 py-1 rounded bg-slate-900/50">
-                    <div className="flex items-center gap-1.5">
+                  <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 text-xs px-2 py-1.5 rounded bg-slate-900/50">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <CryptoIcon symbol={t.symbol} size={16} />
                       <span className={t.side === "buy" ? "text-emerald-400" : "text-red-400"}>{t.side.toUpperCase()}</span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <span className="text-slate-500">{t.entry_time?.slice(11, 19)}</span>
                       <span className={t.pnl && t.pnl >= 0 ? "text-emerald-400" : "text-red-400"}>
                         {t.pnl != null ? `${t.pnl >= 0 ? "+" : ""}${t.pnl.toFixed(2)}` : "—"}

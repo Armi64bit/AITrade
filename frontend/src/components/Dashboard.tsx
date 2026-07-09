@@ -8,7 +8,7 @@ export function Dashboard({ perf }: { perf: Performance | null }) {
   const isGreen = perf.total_pnl >= 0;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-6">
       <SpotlightCard>
         <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Balance</div>
         <div className={`text-xl md:text-2xl font-bold ${isGreen ? "text-emerald-400" : "text-red-400"}`}>

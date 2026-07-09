@@ -9,7 +9,7 @@ type StarBorderProps<T extends React.ElementType> = React.ComponentPropsWithoutR
   thickness?: number;
 };
 
-const StarBorder = <T extends React.ElementType = 'button'>({
+const StarBorder = <T extends React.ElementType = 'div'>({
   as,
   className = '',
   color = 'white',
@@ -18,11 +18,11 @@ const StarBorder = <T extends React.ElementType = 'button'>({
   children,
   ...rest
 }: StarBorderProps<T>) => {
-  const Component = as || 'button';
+  const Component = as || 'div';
 
   return (
     <Component
-      className={`relative inline-block overflow-hidden rounded-[20px] ${className}`}
+      className={`relative block w-full overflow-hidden rounded-[20px] ${className}`}
       {...(rest as any)}
       style={{
         padding: `${thickness}px 0`,

@@ -167,9 +167,9 @@ export default function App() {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <Aurora />
       </div>
-      <div className="max-w-6xl mx-auto p-4 md:p-6 relative z-10">
+      <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 md:px-6 lg:px-8 relative z-10">
         <FadeContent>
-          <header className="mb-6 flex items-center justify-between">
+          <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">AI</div>
               <div>
@@ -177,7 +177,9 @@ export default function App() {
                 <p className="text-xs text-slate-500">Self-improving AI trading bot</p>
               </div>
             </div>
-            <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
+            <div className="w-full sm:w-auto">
+              <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
+            </div>
           </header>
         </FadeContent>
 
@@ -188,14 +190,11 @@ export default function App() {
           <MarketNews />
         </FadeContent>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)] mb-6">
+          <div className="space-y-4 min-w-0">
             <FadeContent>
-              <SpotlightCard><ActivityLog key="log" /></SpotlightCard>
+              <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
             </FadeContent>
-          </div>
-
-          <div className="lg:col-span-2 space-y-4">
             <FadeContent>
               <CandlestickChart data={candles} />
             </FadeContent>
@@ -210,7 +209,7 @@ export default function App() {
             </FadeContent>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <FadeContent>
               <RightSidebar
                 status={status}
@@ -223,36 +222,34 @@ export default function App() {
               />
             </FadeContent>
           </div>
-
-          <div className="space-y-4">
-            <FadeContent>
-              <div className="card">
-                <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
-                  {(["strategies", "daily"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
-                      className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                        historyTab === t
-                          ? "bg-slate-700 text-slate-100"
-                          : "text-slate-500 hover:text-slate-300"
-                      }`}
-                    >
-                      {t === "strategies" ? "Strategies" : "Daily"}
-                    </button>
-                  ))}
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {historyTab === "strategies" ? (
-                    <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
-                  ) : (
-                    <DailyPerformance key="daily" trades={trades} />
-                  )}
-                </div>
-              </div>
-            </FadeContent>
-          </div>
         </div>
+
+        <FadeContent>
+          <div className="card mb-6 w-full min-w-0 overflow-hidden flex flex-col">
+            <div className="flex flex-wrap bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
+              {(["strategies", "daily"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
+                  className={`flex-1 min-w-[120px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                    historyTab === t
+                      ? "bg-slate-700 text-slate-100"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {t === "strategies" ? "Strategies" : "Daily"}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-[min(24rem,60vh)] overflow-y-auto pr-1">
+              {historyTab === "strategies" ? (
+                <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
+              ) : (
+                <DailyPerformance key="daily" trades={trades} />
+              )}
+            </div>
+          </div>
+        </FadeContent>
 
         {showStopDialog && (
           <StopDialog

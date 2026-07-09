@@ -1,7 +1,6 @@
 import type { BotStatus } from "../api/client";
 import { CryptoIcon } from "./CryptoIcon";
 import { money } from "../utils/currency";
-import PixelCard from "./PixelCard";
 
 function rsiLabel(v: number): string {
   if (v >= 70) return "Overbought";
@@ -38,9 +37,9 @@ export function Controls({ status, onStart, onStop, symbol }: {
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-200">Bot Controls</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {stoppingAfterTrade && (
             <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
               Stopping soon
@@ -68,29 +67,29 @@ export function Controls({ status, onStart, onStop, symbol }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 mb-4 text-sm">
-        <PixelCard variant="blue" className="!p-0 !bg-transparent">
-          <div className="px-4 py-3 flex items-center gap-3">
-            <CryptoIcon symbol={currentSymbol} size={36} />
-            <div className="flex-1">
-              <div className="text-slate-400 text-xs uppercase tracking-wider">Current Price</div>
-              <div className="text-xl font-bold text-slate-100">
+      <div className="grid grid-cols-1 gap-2.5 mb-4 text-sm">
+        <div className="w-full rounded-xl border border-slate-700/70 bg-slate-800/55 px-3 py-2.5">
+          <div className="flex items-center gap-3">
+            <CryptoIcon symbol={currentSymbol} size={32} />
+            <div className="min-w-0 flex-1">
+              <div className="text-slate-400 text-[11px] uppercase tracking-wider">Current Price</div>
+              <div className="text-lg font-bold text-slate-100 truncate">
                 {price ? money(price) : "—"}
               </div>
             </div>
           </div>
-        </PixelCard>
+        </div>
 
         {rsi !== null && rsi !== undefined && (
-          <div className="bg-slate-800/50 px-4 py-3 rounded">
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-slate-400 text-xs uppercase tracking-wider">RSI (14)</div>
-              <div className={`text-lg font-bold ${rsiColor(rsi)}`}>
+          <div className="bg-slate-800/50 px-3 py-2.5 rounded">
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="text-slate-400 text-[11px] uppercase tracking-wider">RSI (14)</div>
+              <div className={`text-base font-bold ${rsiColor(rsi)}`}>
                 {rsi.toFixed(1)}
-                <span className="text-xs font-normal ml-2 text-slate-500">{rsiLabel(rsi)}</span>
+                <span className="text-[11px] font-normal ml-2 text-slate-500">{rsiLabel(rsi)}</span>
               </div>
             </div>
-            <div className="text-xs text-slate-500">{interpretRSI(rsi)}</div>
+            <div className="text-[11px] leading-4 text-slate-500">{interpretRSI(rsi)}</div>
             <div className="mt-2 w-full bg-slate-700 rounded-full h-1.5">
               <div
                 className={`h-1.5 rounded-full transition-all ${rsi > 50 ? "bg-emerald-500" : "bg-red-500"}`}
@@ -101,13 +100,13 @@ export function Controls({ status, onStart, onStop, symbol }: {
         )}
 
         {status?.indicators?.ema_short != null && status?.indicators?.ema_long != null && (
-          <div className="bg-slate-800/50 px-4 py-3 rounded">
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Trend Signals</div>
-            <div className="flex justify-between text-xs">
+          <div className="bg-slate-800/50 px-3 py-2.5 rounded">
+            <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Trend Signals</div>
+            <div className="flex flex-col gap-1 text-[11px] sm:flex-row sm:justify-between">
               <span className="text-slate-400">EMA Short (fast): <span className="text-slate-200 font-mono">{status.indicators.ema_short.toFixed(2)}</span></span>
               <span className="text-slate-400">EMA Long (slow): <span className="text-slate-200 font-mono">{status.indicators.ema_long.toFixed(2)}</span></span>
             </div>
-            <div className="text-xs text-slate-500 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               {status.indicators.ema_short > status.indicators.ema_long
                 ? "Bullish trend — fast EMA above slow EMA"
                 : "Bearish trend — fast EMA below slow EMA"}
@@ -116,7 +115,7 @@ export function Controls({ status, onStart, onStop, symbol }: {
         )}
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <button
           onClick={onStart}
           disabled={running}

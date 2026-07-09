@@ -1,31 +1,29 @@
 import type { Trade } from "../api/client";
 import { CryptoIcon } from "./CryptoIcon";
 import { money, pct } from "../utils/currency";
-import StarBorder from "./StarBorder";
 
 export function TradeLog({ trades }: { trades: Trade[] }) {
   return (
-    <StarBorder>
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-200">Trade History</h3>
-          <span className="text-xs text-slate-500">{trades.length} trades</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-slate-500 text-xs uppercase tracking-wider border-b border-slate-700">
-                <th className="text-left py-2 font-medium">Pair</th>
-                <th className="text-left py-2 font-medium">Time</th>
-                <th className="text-center py-2 font-medium">Side</th>
-                <th className="text-right py-2 font-medium">Entry</th>
-                <th className="text-right py-2 font-medium">Exit</th>
-                <th className="text-right py-2 font-medium">P&L</th>
-                <th className="text-right py-2 font-medium">Return</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trades.map((t) => {
+    <div className="card w-full min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+        <h3 className="text-lg font-semibold text-slate-200">Trade History</h3>
+        <span className="text-xs text-slate-500">{trades.length} trades</span>
+      </div>
+      <div className="overflow-x-auto min-w-0">
+        <table className="min-w-full w-full text-sm table-auto">
+          <thead>
+            <tr className="text-slate-500 text-xs uppercase tracking-wider border-b border-slate-700">
+              <th className="text-left py-2 font-medium">Pair</th>
+              <th className="text-left py-2 font-medium">Time</th>
+              <th className="text-center py-2 font-medium">Side</th>
+              <th className="text-right py-2 font-medium">Entry</th>
+              <th className="text-right py-2 font-medium">Exit</th>
+              <th className="text-right py-2 font-medium">P&L</th>
+              <th className="text-right py-2 font-medium">Return</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trades.map((t) => {
               const won = t.pnl != null && t.pnl >= 0;
               return (
                 <tr key={t.id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
@@ -66,6 +64,5 @@ export function TradeLog({ trades }: { trades: Trade[] }) {
         </table>
       </div>
     </div>
-    </StarBorder>
   );
 }

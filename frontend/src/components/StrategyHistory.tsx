@@ -43,7 +43,7 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
   if (loading) return null;
 
   return (
-    <>
+    <div className="w-full overflow-x-hidden">
       {history.length > 0 && (
         <div className="space-y-2 text-sm">
           {history.map((entry) => {
@@ -51,12 +51,12 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
             return (
               <div
                 key={entry.id}
-                className={`p-2 rounded flex items-center justify-between ${
+                className={`p-2.5 rounded-lg flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${
                   isActive ? "bg-emerald-500/10 border border-emerald-500/30" : "bg-slate-800/50"
                 }`}
               >
-                <div>
-                  <div className="text-xs font-medium flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium flex flex-wrap items-center gap-2">
                     <span className={isActive ? "text-emerald-300" : "text-slate-300"}>#{entry.id}</span>
                     {isActive && <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-full font-semibold">ACTIVE</span>}
                   </div>
@@ -73,7 +73,7 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
                   <button
                     onClick={() => handleActivate(entry)}
                     disabled={activating === entry.id}
-                    className="px-2.5 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors cursor-pointer"
+                    className="w-full sm:w-auto px-2.5 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded transition-colors cursor-pointer"
                   >
                     {activating === entry.id ? "..." : "Use"}
                   </button>
@@ -90,6 +90,6 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
       {history.length === 0 && (
         <div className="text-center text-slate-500 text-xs py-4">No strategies saved yet. Run Auto-Optimize to create one.</div>
       )}
-    </>
+    </div>
   );
 }
