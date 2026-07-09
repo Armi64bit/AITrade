@@ -213,8 +213,7 @@ class BinanceTrader:
         self._optimizing = False
 
     def _init_pair_scores(self):
-        rng = np.random.default_rng(42)
-        return {s: {"drift": rng.normal(0, 0.002), "volatility": rng.uniform(0.003, 0.012)} for s in SYMBOLS}
+        return {s: {"score": 0.0} for s in SYMBOLS}
 
     async def _evaluate_best_pair(self):
         if self._pending_symbol:
@@ -233,15 +232,24 @@ class BinanceTrader:
             return
 
         current_vol = float(self.df["close"].iloc[-20:].std() / self.df["close"].iloc[-1])
+        recent_pnls = list(self._recent_pnls)
+        recent_win_rate = sum(1 for p in recent_pnls if p > 0) / max(len(recent_pnls), 1) if recent_pnls else 0.5
+        performance_factor = recent_win_rate - 0.3  # positive if above 30% win rate
+        stat_score = current_vol * (1 - min(performance_factor, 0))
+
         best = self.symbol
-        best_score = current_vol
+        best_score = stat_score
+        self._pair_scores[self.symbol]["score"] = stat_score
         for sym, data in self._pair_scores.items():
-            sim_vol = data["volatility"] * (1 + data["drift"] * 10)
-            if sim_vol > best_score:
-                best_score = sim_vol
+            if sym == self.symbol:
+                continue
+            decay = 0.97
+            data["score"] *= decay
+            if data["score"] > best_score:
+                best_score = data["score"]
                 best = sym
 
-        if best != self.symbol and best_score > current_vol * 1.5:
+        if best != self.symbol and best_score > stat_score * 1.3:
             self._pending_symbol = best
 
     async def _load_history(self):
@@ -296,7 +304,7 @@ class BinanceTrader:
                 if self.position:
                     await self._check_exit(self.df)
 
-                await asyncio.sleep(30)
+                await asyncio.sleep(60)
             except Exception as e:
                 print(f"Tick error: {e}")
                 await asyncio.sleep(10)
@@ -400,7 +408,7 @@ class BinanceTrader:
 
         ticks_held = 0
         if entry_time:
-            ticks_held = int((datetime.now(timezone.utc) - entry_time).total_seconds() / 30)
+            ticks_held = int((datetime.now(timezone.utc) - entry_time).total_seconds() / 60)
 
         if pnl_pct <= -sl:
             await self._close_trade(current_price, pnl_pct)

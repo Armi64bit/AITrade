@@ -43,7 +43,7 @@ class Ensemble:
         self._last_votes = votes
         return votes
 
-    def aggregate(self, df, threshold: float = 0.25) -> tuple[int, float]:
+    def aggregate(self, df, threshold: float = 0.40) -> tuple[int, float]:
         votes = self.get_signals(df)
         total = 0.0
         weight_sum = 0.0
