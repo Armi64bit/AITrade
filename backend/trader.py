@@ -148,7 +148,7 @@ class BinanceTrader:
         now = time.time()
         if self._optimizing or len(self.df) < 50:
             return
-        if len(self._recent_pnls) < 15:
+        if len(self._recent_pnls) < 5:
             return
         if now - self._last_optimize_time < 1800:
             return
@@ -436,10 +436,7 @@ class BinanceTrader:
             self._save_setting("ensemble_state", json.dumps(self.ensemble.get_state()))
 
             self._recent_pnls.append(pnl_pct)
-            if pnl_pct < 0:
-                asyncio.create_task(self._auto_optimize())
-            else:
-                pass
+            asyncio.create_task(self._auto_optimize())
             self.position = None
             self._current_trade_db_id = None
             if self.stop_after_trade:
