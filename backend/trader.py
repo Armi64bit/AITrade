@@ -356,6 +356,7 @@ class BinanceTrader:
     async def _check_exit(self, df):
         current_price = df["close"].iloc[-1]
         entry = self.position["entry_price"]
+        entry_time = self.position.get("entry_time")
         sl = TRADE_CONFIG["stop_loss_pct"]
         tp = TRADE_CONFIG["take_profit_pct"]
 
@@ -363,12 +364,21 @@ class BinanceTrader:
         if self.position["side"] == "sell":
             pnl_pct = -pnl_pct
 
-        signal, _ = self.ensemble.aggregate(df)
-        exit_signal = (self.position["side"] == "buy" and signal == -1) or \
-                      (self.position["side"] == "sell" and signal == 1)
+        # Only exit on signal flip if trade is 2+ ticks old (let it breathe)
+        ticks_held = 0
+        if entry_time:
+            ticks_held = int((datetime.now(timezone.utc) - entry_time).total_seconds() / 30)
 
-        if pnl_pct <= -sl or pnl_pct >= tp or exit_signal:
+        if pnl_pct <= -sl:
             await self._close_trade(current_price, pnl_pct)
+        elif pnl_pct >= tp:
+            await self._close_trade(current_price, pnl_pct)
+        elif ticks_held >= 2:
+            signal, _ = self.ensemble.aggregate(df)
+            exit_signal = (self.position["side"] == "buy" and signal == -1) or \
+                          (self.position["side"] == "sell" and signal == 1)
+            if exit_signal:
+                await self._close_trade(current_price, pnl_pct)
 
     async def _close_trade(self, exit_price, pnl_pct):
         try:
