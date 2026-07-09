@@ -143,9 +143,16 @@ class BinanceTrader:
             self._log_event("bot", "Bot stopped")
 
     async def _auto_optimize(self):
+        now = time.time()
         if self._optimizing or len(self.df) < 50:
             return
+        if self._trades_since_optimize < 10:
+            return
+        if now - self._last_optimize_time < 3600:
+            return
         self._optimizing = True
+        self._last_optimize_time = time.time()
+        self._trades_since_optimize = 0
         self._log_event("optimize", "Auto-optimizing after 2 consecutive losses...")
         self.last_pair_switch_msg = "⚙️ Auto-optimizing strategy after 2 consecutive losses..."
         try:
@@ -414,18 +421,19 @@ class BinanceTrader:
 
             if pnl_pct < 0:
                 self.consecutive_losses += 1
-                if self.consecutive_losses >= 2:
+                if self.consecutive_losses >= 5:
                     asyncio.create_task(self._auto_optimize())
             else:
                 self.consecutive_losses = 0
             self.position = None
             self._current_trade_db_id = None
+            if self._last_optimize_time != 0:
+                self._trades_since_optimize += 1
             if self.stop_after_trade:
                 self.running = False
                 self.stop_after_trade = False
             elif self._pending_pair_switch and self._pending_symbol:
                 target = self._pending_symbol
-                self._pending_symbol = None
                 self._pending_pair_switch = False
                 await self.set_symbol(target)
                 self.last_pair_switch_msg = f"Auto-switched to {target} — best performing pair"
