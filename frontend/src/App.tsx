@@ -7,14 +7,14 @@ import { CandlestickChart } from "./components/CandlestickChart";
 import { SymbolSelector } from "./components/SymbolSelector";
 import { TradeLog } from "./components/TradeLog";
 import { AIInsights } from "./components/AIInsights";
-import { MarketNews } from "./components/MarketNews";
+// import { MarketNews } from "./components/MarketNews";
 import { StrategyVotes } from "./components/StrategyVotes";
 import { RightSidebar } from "./components/RightSidebar";
 import { StrategyHistory } from "./components/StrategyHistory";
 import { DailyPerformance } from "./components/DailyPerformance";
 import { ActivityLog } from "./components/ActivityLog";
 import { StopDialog } from "./components/StopDialog";
-import { fetchTndRate } from "./utils/currency";
+import { fetchTndRate, money, pct } from "./utils/currency";
 import Aurora from "./components/Aurora";
 import FadeContent from "./components/FadeContent";
 import SpotlightCard from "./components/SpotlightCard";
@@ -46,6 +46,49 @@ export default function App() {
   useTradeSounds(trades);
 
   const status = restStatus ?? wsStatus;
+
+  const latestTrade = trades.length > 0 ? trades.reduce((latest, trade) => {
+    const latestTime = latest.exit_time ?? latest.entry_time;
+    const tradeTime = trade.exit_time ?? trade.entry_time;
+    return tradeTime.localeCompare(latestTime) > 0 ? trade : latest;
+  }, trades[0]) : null;
+
+  const latestTradeWon = latestTrade?.pnl != null && latestTrade.pnl >= 0;
+  const latestTradeClosed = latestTrade?.status === "closed" && latestTrade?.exit_time;
+  const latestTradeLabel = latestTrade
+    ? latestTradeClosed
+      ? `${latestTrade.side === "buy" ? "BUY" : "SELL"} ${latestTrade.symbol.replace("/USDT", "")}`
+      : `${latestTrade.side === "buy" ? "BUY" : "SELL"} ${latestTrade.symbol.replace("/USDT", "")} (Open)`
+    : null;
+  const latestTradeResult = latestTrade
+    ? latestTradeClosed
+      ? `${latestTradeWon ? "Win" : "Loss"} ${latestTrade.pnl != null ? money(latestTrade.pnl) : ""} ${latestTrade.pnl_pct != null ? pct(latestTrade.pnl_pct) : ""}`.trim()
+      : latestTrade.entry_price
+        ? `Entered at $${latestTrade.entry_price.toFixed(2)}`
+        : "Open position"
+    : null;
+  const latestTradeTime = latestTrade
+    ? new Date(latestTradeClosed ? latestTrade.exit_time ?? latestTrade.entry_time : latestTrade.entry_time).toLocaleString()
+    : null;
+
+  const currentPositionSummary = (() => {
+    const position = status?.position;
+    if (position) {
+      if (typeof position === "string") return position;
+      const side = (position.side ?? position.signal ?? "").toString().toUpperCase();
+      if (side === "BUY" || side === "SELL") {
+        return `${side} signal`;
+      }
+      if (position.side) {
+        return `${position.side.toString().toUpperCase()} position`;
+      }
+      return "Open position";
+    }
+    if (status?.running) return "Searching";
+    return "Stopped";
+  })();
+
+  const currentPositionColor = status?.position ? (typeof status.position === "object" && (status.position.side ?? status.position.signal)?.toString().toLowerCase() === "buy" ? "text-emerald-400" : "text-red-400") : "text-slate-100";
 
   const mascotMood: MascotMood = (() => {
     if (optimizing) return "thinking";
@@ -191,12 +234,20 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Live status</p>
-                <p className="mt-2 text-sm text-slate-300">{status?.running ? "Bot is running" : "Bot is stopped"}</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Latest trade</p>
+                {latestTrade ? (
+                  <>
+                    <p className="mt-2 text-sm font-semibold text-slate-100">{latestTradeLabel}</p>
+                    <p className={`mt-1 text-sm ${latestTradeWon ? "text-emerald-400" : "text-red-400"}`}>{latestTradeResult}</p>
+                    <p className="mt-1 text-xs text-slate-500">{latestTradeTime}</p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-300">No trades yet</p>
+                )}
               </div>
               <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Active mode</p>
-                <p className="mt-2 text-sm font-semibold text-slate-100">{status?.paper_mode ? "Paper trading" : status?.running ? "Live trading" : "Stopped"}</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Trading state</p>
+                <p className={`mt-2 text-sm font-semibold ${currentPositionColor}`}>{currentPositionSummary}</p>
               </div>
               <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
                 <div className="space-y-4">
