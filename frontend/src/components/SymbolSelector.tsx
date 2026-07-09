@@ -11,7 +11,7 @@ export function SymbolSelector({ value, onChange, disabled }: {
 }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border border-slate-800/80 bg-slate-900/70 px-3 py-2 sm:justify-start">
-      <label className="text-sm text-slate-400">Pair:</label>
+      {/* <label className="text-sm text-slate-400">Pair:</label> */}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

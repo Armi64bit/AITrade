@@ -234,7 +234,7 @@ export default function App() {
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.25)] h-full flex flex-col justify-between">
-                <div className="space-y-4 flex-1">
+                <div className="space-y-4 flex-1 min-h-0">
                   <div>
                     <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Latest trade</p>
                     <p className="mt-2 text-xl font-semibold text-slate-100 tracking-tight">{latestTrade ? latestTradeLabel : "No trades yet"}</p>
@@ -246,7 +246,7 @@ export default function App() {
                       <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">{latestTradeTime}</p>
                     </div>
                   ) : (
-                    <div className="flex h-full items-center justify-center text-slate-500 text-sm">
+                    <div className="flex min-h-[6rem] items-center justify-center text-slate-500 text-sm">
                       No trades have been recorded yet.
                     </div>
                   )}
