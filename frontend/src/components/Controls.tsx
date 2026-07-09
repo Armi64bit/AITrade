@@ -22,12 +22,11 @@ function interpretRSI(v: number): string {
   return "No clear direction";
 }
 
-export function Controls({ status, onStart, onStop, symbol, onSymbolChange }: {
+export function Controls({ status, onStart, onStop, symbol }: {
   status: BotStatus | null;
   onStart: () => void;
   onStop: () => void;
   symbol: string;
-  onSymbolChange?: (s: string) => void;
 }) {
   const running = status?.running ?? false;
   const price = status?.last_price;

@@ -12,12 +12,16 @@ interface Tracking {
   [name: string]: { wins: number; losses: number; trades: number };
 }
 
-const SIGNAL_LABELS: Record<number, string> = { 1: "BUY", 0: "-", -1: "SELL" };
-const SIGNAL_COLORS: Record<number, string> = {
-  1: "bg-emerald-500/20 text-emerald-400",
-  -1: "bg-red-500/20 text-red-400",
-  0: "bg-slate-600/20 text-slate-500",
-};
+function signalLabel(v: number): string {
+  if (v > 0) return "BUY";
+  if (v < 0) return "SELL";
+  return "-";
+}
+function signalColor(v: number): string {
+  if (v > 0) return "bg-emerald-500/20 text-emerald-400";
+  if (v < 0) return "bg-red-500/20 text-red-400";
+  return "bg-slate-600/20 text-slate-500";
+}
 
 export function StrategyVotes() {
   const [votes, setVotes] = useState<Vote[]>([]);
@@ -48,8 +52,8 @@ export function StrategyVotes() {
           return (
             <div key={v.name} className="flex items-center gap-2 p-2 rounded-lg bg-slate-800/30">
               <span className="w-20 text-slate-300 shrink-0">{v.name}</span>
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${SIGNAL_COLORS[v.signal]}`}>
-                {SIGNAL_LABELS[v.signal]}
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${signalColor(v.signal)}`}>
+                {signalLabel(v.signal)}
               </span>
               <div className="flex-1 h-1 rounded-full bg-slate-700 overflow-hidden">
                 <div
