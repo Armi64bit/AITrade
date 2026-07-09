@@ -294,7 +294,7 @@ export default function App() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] xl:grid-cols-[minmax(0,2.2fr)_minmax(380px,1fr)] mb-6">
           <div className="space-y-4 min-w-0">
             <FadeContent>
-              <CandlestickChart data={candles} />
+              <CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} />
             </FadeContent>
             <FadeContent>
               <TradeLog trades={trades} />

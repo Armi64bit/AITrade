@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { createChart, CandlestickSeries, HistogramSeries, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type Time } from "lightweight-charts";
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type LineData, type Time } from "lightweight-charts";
 
 interface Candle {
   time: number;
@@ -9,11 +9,12 @@ interface Candle {
   close: number;
 }
 
-export function CandlestickChart({ data }: { data: Candle[] }) {
+export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPrice?: number | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const entryLineRef = useRef<ISeriesApi<"Line"> | null>(null);
   const hasDataRef = useRef(false);
 
   useEffect(() => {
@@ -80,6 +81,27 @@ export function CandlestickChart({ data }: { data: Candle[] }) {
       hasDataRef.current = true;
     }
   }, [data]);
+
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current || data.length === 0) return;
+    if (entryLineRef.current) {
+      chartRef.current.removeSeries(entryLineRef.current);
+      entryLineRef.current = null;
+    }
+    if (entryPrice == null) return;
+    const now = (Math.floor(Date.now() / 1000)) as Time;
+    const lineData: LineData[] = data.length > 0
+      ? [{ time: (data[0].time / 1000) as Time, value: entryPrice }, { time: now, value: entryPrice }]
+      : [{ time: now, value: entryPrice }];
+    entryLineRef.current = chartRef.current.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineWidth: 2,
+      lineStyle: 2,
+      lastValueVisible: true,
+      priceLineVisible: false,
+    });
+    entryLineRef.current.setData(lineData);
+  }, [entryPrice, data]);
 
   return <div ref={containerRef} className="w-full rounded-lg overflow-hidden" />;
 }
