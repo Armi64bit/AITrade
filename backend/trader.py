@@ -11,12 +11,6 @@ from models import SessionLocal, Trade, StrategyState, Setting
 from strategies import Ensemble
 from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE, SYMBOLS
 from concurrent.futures import ThreadPoolExecutor
-import prometheus_client
-
-METRIC_NS = "aitrader"
-_trade_total = prometheus_client.Counter(f"{METRIC_NS}_trades_total", "Total trades executed", ["side", "status"])
-_trade_pnl = prometheus_client.Gauge(f"{METRIC_NS}_trade_pnl", "Trade P&L in USDT", ["trade_id"])
-_trade_pnl_pct = prometheus_client.Gauge(f"{METRIC_NS}_trade_pnl_pct", "Trade P&L in percent", ["trade_id"])
 
 
 class BinanceTrader:
@@ -379,8 +373,6 @@ class BinanceTrader:
                 "market_conditions": {},
             }
 
-            _trade_total.labels(side=side, status="open").inc()
-
             db = SessionLocal()
             trade = Trade(
                 symbol=self.symbol,
@@ -439,10 +431,6 @@ class BinanceTrader:
                 db.commit()
                 self._save_setting("balance", f"{self._balance:.2f}")
             db.close()
-
-            _trade_total.labels(side=trade.side, status="closed").inc()
-            _trade_pnl.labels(trade_id=str(trade.id)).set(trade.pnl or 0)
-            _trade_pnl_pct.labels(trade_id=str(trade.id)).set(trade.pnl_pct or 0)
 
             self.ensemble.record_trade(pnl_pct)
             self._save_setting("ensemble_state", json.dumps(self.ensemble.get_state()))
