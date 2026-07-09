@@ -32,14 +32,23 @@ export default function App() {
   const [changingSymbol, setChangingSymbol] = useState(false);
   const [showStopDialog, setShowStopDialog] = useState(false);
   const [pendingOptimize, setPendingOptimize] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useTradeSounds(trades);
 
   const status = restStatus ?? wsStatus;
 
-  useEffect(() => { api.getTrades().then(setTrades); }, []);
-  useEffect(() => { api.getStrategy().then(s => { if (s?.wins !== undefined) setStrategy(s); }); }, []);
-  useEffect(() => { fetchTndRate(); }, []);
+  useEffect(() => {
+    Promise.all([
+      api.getTrades(),
+      api.getStrategy(),
+      fetchTndRate(),
+    ]).then(([t, s]) => {
+      setTrades(t);
+      if (s?.wins !== undefined) setStrategy(s);
+      setLoaded(true);
+    });
+  }, []);
 
   useEffect(() => {
     if (strategy) localStorage.setItem(LS_STRATEGY, JSON.stringify(strategy));
@@ -130,6 +139,17 @@ export default function App() {
   const handleActivateStrategy = (params: Record<string, number>, sharpe: number | null, total_trades = 0, wins = 0, losses = 0) => {
     setStrategy({ params, sharpe_ratio: sharpe, total_trades, wins, losses });
   };
+
+  if (!loaded) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg animate-pulse">AI</div>
+          <div className="text-slate-400 text-sm">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
