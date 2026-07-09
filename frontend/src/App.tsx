@@ -15,6 +15,10 @@ import { DailyPerformance } from "./components/DailyPerformance";
 import { ActivityLog } from "./components/ActivityLog";
 import { StopDialog } from "./components/StopDialog";
 import { fetchTndRate } from "./utils/currency";
+import Aurora from "./components/Aurora";
+import FadeContent from "./components/FadeContent";
+import SpotlightCard from "./components/SpotlightCard";
+import LiquidChrome from "./components/LiquidChrome";
 
 const LS_KEY = "aitrader_symbol";
 const LS_STRATEGY = "aitrader_strategy";
@@ -146,8 +150,11 @@ export default function App() {
 
   if (!loaded) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-950">
-        <div className="flex flex-col items-center gap-4">
+      <div className="h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
+        <div className="absolute inset-0">
+          <LiquidChrome />
+        </div>
+        <div className="flex flex-col items-center gap-4 relative z-10">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg animate-pulse">AI</div>
           <div className="text-slate-400 text-sm">Loading...</div>
         </div>
@@ -156,86 +163,106 @@ export default function App() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">AI</div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-slate-100">AiTrader</h1>
-            <p className="text-xs text-slate-500">Self-improving AI trading bot</p>
-          </div>
-        </div>
-        <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
-      </header>
-
-      <Dashboard perf={perf} />
-      <MarketNews />
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-        <div className="space-y-4">
-          <div className="card h-full">
-            <h3 className="text-sm font-semibold text-slate-300 mb-4">Activity Log</h3>
-            <div className="max-h-96 overflow-y-auto">
-              <ActivityLog key="log" />
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 space-y-4">
-          <CandlestickChart data={candles} />
-          <TradeLog trades={trades} />
-          <AIInsights onOptimize={handleOptimize} />
-          <StrategyVotes />
-        </div>
-
-        <div className="space-y-4">
-          <RightSidebar
-            status={status}
-            symbol={symbol}
-            onStart={handleStart}
-            onStop={handleStop}
-            strategy={strategy}
-            onOptimize={handleOptimize}
-            optimizing={optimizing}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <div className="card">
-            <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
-              {(["strategies", "daily"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                    historyTab === t
-                      ? "bg-slate-700 text-slate-100"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  {t === "strategies" ? "Strategies" : "Daily"}
-                </button>
-              ))}
-            </div>
-            <div className="max-h-96 overflow-y-auto">
-              {historyTab === "strategies" ? (
-                <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
-              ) : (
-                <DailyPerformance key="daily" trades={trades} />
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <Aurora />
       </div>
+      <div className="max-w-6xl mx-auto p-4 md:p-6 relative z-10">
+        <FadeContent>
+          <header className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">AI</div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold text-slate-100">AiTrader</h1>
+                <p className="text-xs text-slate-500">Self-improving AI trading bot</p>
+              </div>
+            </div>
+            <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
+          </header>
+        </FadeContent>
 
-      {showStopDialog && (
-        <StopDialog
-          onStopNow={stopNow}
-          onStopAfterTrade={stopAfterTrade}
-          onCancel={cancelDialog}
-          pendingOptimize={pendingOptimize}
-        />
-      )}
+        <FadeContent>
+          <Dashboard perf={perf} />
+        </FadeContent>
+        <FadeContent>
+          <MarketNews />
+        </FadeContent>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+          <div className="space-y-4">
+            <FadeContent>
+              <SpotlightCard><ActivityLog key="log" /></SpotlightCard>
+            </FadeContent>
+          </div>
+
+          <div className="lg:col-span-2 space-y-4">
+            <FadeContent>
+              <CandlestickChart data={candles} />
+            </FadeContent>
+            <FadeContent>
+              <TradeLog trades={trades} />
+            </FadeContent>
+            <FadeContent>
+              <AIInsights onOptimize={handleOptimize} />
+            </FadeContent>
+            <FadeContent>
+              <StrategyVotes />
+            </FadeContent>
+          </div>
+
+          <div className="space-y-4">
+            <FadeContent>
+              <RightSidebar
+                status={status}
+                symbol={symbol}
+                onStart={handleStart}
+                onStop={handleStop}
+                strategy={strategy}
+                onOptimize={handleOptimize}
+                optimizing={optimizing}
+              />
+            </FadeContent>
+          </div>
+
+          <div className="space-y-4">
+            <FadeContent>
+              <div className="card">
+                <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
+                  {(["strategies", "daily"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
+                      className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                        historyTab === t
+                          ? "bg-slate-700 text-slate-100"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      {t === "strategies" ? "Strategies" : "Daily"}
+                    </button>
+                  ))}
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {historyTab === "strategies" ? (
+                    <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
+                  ) : (
+                    <DailyPerformance key="daily" trades={trades} />
+                  )}
+                </div>
+              </div>
+            </FadeContent>
+          </div>
+        </div>
+
+        {showStopDialog && (
+          <StopDialog
+            onStopNow={stopNow}
+            onStopAfterTrade={stopAfterTrade}
+            onCancel={cancelDialog}
+            pendingOptimize={pendingOptimize}
+          />
+        )}
+      </div>
     </div>
   );
 }

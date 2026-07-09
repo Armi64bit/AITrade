@@ -1,6 +1,7 @@
 import type { BotStatus } from "../api/client";
 import { CryptoIcon } from "./CryptoIcon";
 import { money } from "../utils/currency";
+import PixelCard from "./PixelCard";
 
 function rsiLabel(v: number): string {
   if (v >= 70) return "Overbought";
@@ -68,15 +69,17 @@ export function Controls({ status, onStart, onStop, symbol }: {
       </div>
 
       <div className="grid grid-cols-1 gap-3 mb-4 text-sm">
-        <div className="bg-slate-800/50 px-4 py-3 rounded flex items-center gap-3">
-          <CryptoIcon symbol={currentSymbol} size={36} />
-          <div className="flex-1">
-            <div className="text-slate-400 text-xs uppercase tracking-wider">Current Price</div>
-            <div className="text-xl font-bold text-slate-100">
-              {price ? money(price) : "—"}
+        <PixelCard variant="blue" className="!p-0 !bg-transparent">
+          <div className="px-4 py-3 flex items-center gap-3">
+            <CryptoIcon symbol={currentSymbol} size={36} />
+            <div className="flex-1">
+              <div className="text-slate-400 text-xs uppercase tracking-wider">Current Price</div>
+              <div className="text-xl font-bold text-slate-100">
+                {price ? money(price) : "—"}
+              </div>
             </div>
           </div>
-        </div>
+        </PixelCard>
 
         {rsi !== null && rsi !== undefined && (
           <div className="bg-slate-800/50 px-4 py-3 rounded">
