@@ -1,0 +1,156 @@
+{
+  "title": "AiTrader Overview",
+  "uid": "aitrader-overview",
+  "version": 1,
+  "timezone": "browser",
+  "editable": true,
+  "panels": [
+    {
+      "title": "Bot Running",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 0, "y": 0},
+      "targets": [{"expr": "aitrader_bot_running", "legendFormat": "Bot"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"steps": [{"value": null, "color": "red"}, {"value": 1, "color": "green"}]},
+          "mappings": [{"type": "value", "options": {"0": {"text": "Stopped", "color": "red"}, "1": {"text": "Running", "color": "green"}}}],
+          "unit": "none"
+        }
+      }
+    },
+    {
+      "title": "Open Position",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 3, "y": 0},
+      "targets": [{"expr": "aitrader_open_position", "legendFormat": "Position"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"steps": [{"value": null, "color": "green"}, {"value": 1, "color": "orange"}]},
+          "mappings": [{"type": 1, "options": {"0": {"text": "No position", "color": "green"}, "1": {"text": "In position", "color": "orange"}}}]
+        }
+      }
+    },
+    {
+      "title": "Balance (USDT)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 6, "y": 0},
+      "targets": [{"expr": "aitrader_balance_usdt", "legendFormat": "Balance"}],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD", "decimals": 2}}
+    },
+    {
+      "title": "Optimizing",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 9, "y": 0},
+      "targets": [{"expr": "aitrader_optimizing", "legendFormat": "Optimizer"}],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"type": 1, "options": {"0": {"text": "Idle", "color": "green"}, "1": {"text": "Optimizing", "color": "purple"}}}]
+        }
+      }
+    },
+    {
+      "title": "Win Rate (last 30 trades)",
+      "type": "gauge",
+      "gridPos": {"h": 6, "w": 4, "x": 0, "y": 4},
+      "targets": [{"expr": "aitrader_win_rate", "legendFormat": "Win Rate"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {"steps": [
+            {"value": null, "color": "red"},
+            {"value": 0.35, "color": "orange"},
+            {"value": 0.5, "color": "green"}
+          ]}
+        }
+      }
+    },
+    {
+      "title": "Consecutive Losses",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 4, "x": 4, "y": 4},
+      "targets": [{"expr": "aitrader_consecutive_losses", "legendFormat": "Loss streak"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"steps": [
+            {"value": null, "color": "green"},
+            {"value": 3, "color": "orange"},
+            {"value": 5, "color": "red"}
+          ]}
+        }
+      }
+    },
+    {
+      "title": "Ensemble Confidence",
+      "type": "gauge",
+      "gridPos": {"h": 6, "w": 4, "x": 8, "y": 4},
+      "targets": [{"expr": "aitrader_ensemble_confidence", "legendFormat": "Confidence"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 1,
+          "thresholds": {"steps": [
+            {"value": null, "color": "red"},
+            {"value": 0.12, "color": "orange"},
+            {"value": 0.25, "color": "green"}
+          ]}
+        }
+      }
+    },
+    {
+      "title": "Last Price",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 10},
+      "targets": [
+        {"expr": "aitrader_last_price", "legendFormat": "{{symbol}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+    },
+    {
+      "title": "HTTP Requests",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 18},
+      "targets": [
+        {"expr": "rate(aitrader_http_requests_total[5m])", "legendFormat": "{{method}} {{path}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "cps"}}
+    },
+    {
+      "title": "Total Trades",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 3, "x": 12, "y": 0},
+      "targets": [{"expr": "aitrader_trades_total", "legendFormat": "Trades"}],
+      "fieldConfig": {"defaults": {"unit": "none"}}
+    },
+    {
+      "title": "Trade P&L History",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [
+        {"expr": "aitrader_trade_pnl", "legendFormat": "Trade {{trade_id}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "currencyUSD"}}
+    },
+    {
+      "title": "Trade P&L % History",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "targets": [
+        {"expr": "aitrader_trade_pnl_pct", "legendFormat": "Trade {{trade_id}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit"}}
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "symbol",
+        "type": "query",
+        "query": "label_values(aitrader_last_price, symbol)",
+        "refresh": 1
+      }
+    ]
+  }
+}

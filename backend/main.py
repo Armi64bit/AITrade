@@ -4,9 +4,11 @@ import time
 import urllib.request
 import numpy as np
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
+import prometheus_client
 
 from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS
 from trader import BinanceTrader
@@ -16,6 +18,21 @@ from ai_analyzer import generate_analysis
 from news_fetcher import fetch_news
 import pandas as pd
 
+
+# Prometheus metrics
+METRIC_NAMESPACE = "aitrader"
+trade_total = prometheus_client.Counter(f"{METRIC_NAMESPACE}_trades_total", "Total trades executed", ["side", "status"])
+trade_pnl = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_trade_pnl", "Trade P&L in USDT", ["trade_id"])
+trade_pnl_pct = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_trade_pnl_pct", "Trade P&L in percent", ["trade_id"])
+balance_gauge = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_balance_usdt", "Current virtual balance in USDT")
+bot_running = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_bot_running", "Bot running state (1=running, 0=stopped)")
+open_position = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_open_position", "Open position (1=yes, 0=no)")
+ensemble_confidence = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_ensemble_confidence", "Ensemble signal confidence")
+last_price = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_last_price", "Last known price for active symbol", ["symbol"])
+win_rate = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_win_rate", "Win rate over last 30 trades")
+consecutive_losses = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_consecutive_losses", "Consecutive losing trades")
+optimizing_gauge = prometheus_client.Gauge(f"{METRIC_NAMESPACE}_optimizing", "Optimizer running (1=yes, 0=no)")
+http_requests = prometheus_client.Counter(f"{METRIC_NAMESPACE}_http_requests_total", "Total HTTP requests", ["method", "path", "status"])  # noqa: E501
 
 _tnd_rate = 3.0
 _tnd_rate_ts = 0.0
@@ -79,6 +96,40 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    http_requests.labels(method=request.method, path=request.url.path, status=response.status_code).inc()
+    return response
+
+
+@app.get("/metrics")
+async def metrics():
+    update_prometheus_metrics()
+    return PlainTextResponse(prometheus_client.generate_latest().decode("utf-8"), media_type="text/plain")
+
+
+def update_prometheus_metrics():
+    global trader
+    if not trader:
+        return
+    balance_gauge.set(trader._balance)
+    bot_running.set(1 if trader.running else 0)
+    open_position.set(1 if trader.position is not None else 0)
+    optimizing_gauge.set(1 if trader._optimizing else 0)
+    if len(trader.df) > 0:
+        last_price.labels(symbol=trader.symbol).set(float(trader.df["close"].iloc[-1]))
+    recent = list(trader._recent_pnls)
+    if recent:
+        wins = sum(1 for p in recent if p > 0)
+        win_rate.set(wins / len(recent))
+        cons = sum(1 for p in recent if p < 0)
+        consecutive_losses.set(cons)
+    if trader._signal_confidences:
+        ensemble_confidence.set(sum(trader._signal_confidences) / len(trader._signal_confidences))
 
 
 @app.get("/api/status")
