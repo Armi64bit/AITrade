@@ -175,6 +175,34 @@ export default function App() {
         <div className="lg:col-span-2 space-y-4">
           <CandlestickChart data={candles} />
           <TradeLog trades={trades} />
+
+          <div className="card">
+            <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4 max-w-md">
+              {(["strategies", "daily", "log"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                    historyTab === t
+                      ? "bg-slate-700 text-slate-100"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {t === "strategies" ? "Strategies" : t === "daily" ? "Daily" : "Activity Log"}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+              {historyTab === "strategies" ? (
+                <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
+              ) : historyTab === "daily" ? (
+                <DailyPerformance key="daily" trades={trades} />
+              ) : (
+                <ActivityLog key="log" />
+              )}
+            </div>
+          </div>
+
           <AIInsights onOptimize={handleOptimize} />
           <StrategyVotes />
         </div>
@@ -188,33 +216,6 @@ export default function App() {
             onOptimize={handleOptimize}
             optimizing={optimizing}
           />
-        </div>
-      </div>
-
-      <div className="card mb-6">
-        <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4 max-w-md">
-          {(["strategies", "daily", "log"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
-              className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                historyTab === t
-                  ? "bg-slate-700 text-slate-100"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {t === "strategies" ? "Strategies" : t === "daily" ? "Daily" : "Activity Log"}
-            </button>
-          ))}
-        </div>
-        <div className="max-h-96 overflow-y-auto">
-          {historyTab === "strategies" ? (
-            <StrategyHistory onActivate={handleActivateStrategy} />
-          ) : historyTab === "daily" ? (
-            <DailyPerformance trades={trades} />
-          ) : (
-            <ActivityLog />
-          )}
         </div>
       </div>
 
