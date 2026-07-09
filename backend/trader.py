@@ -290,7 +290,7 @@ class BinanceTrader:
                 signal, score = self.ensemble.aggregate(self.df)
                 self._signal_confidences.append(score)
 
-                if signal != 0 and self.position is None:
+                if signal == 1 and self.position is None:
                     await self._open_trade(signal, self.ensemble.weights)
 
                 if self.position:
@@ -361,11 +361,10 @@ class BinanceTrader:
                 return
 
             quantity = amount_usdt / price
-            side = "buy" if signal == 1 else "sell"
             self._balance -= amount_usdt
 
             self.position = {
-                "side": side,
+                "side": "buy",
                 "entry_price": price,
                 "quantity": quantity,
                 "entry_time": datetime.now(timezone.utc),
@@ -376,7 +375,7 @@ class BinanceTrader:
             db = SessionLocal()
             trade = Trade(
                 symbol=self.symbol,
-                side=side,
+                side="buy",
                 entry_price=price,
                 quantity=quantity,
                 status="open",
@@ -398,10 +397,7 @@ class BinanceTrader:
         tp = TRADE_CONFIG["take_profit_pct"]
 
         pnl_pct = (current_price - entry) / entry
-        if self.position["side"] == "sell":
-            pnl_pct = -pnl_pct
 
-        # Only exit on signal flip if trade is 2+ ticks old (let it breathe)
         ticks_held = 0
         if entry_time:
             ticks_held = int((datetime.now(timezone.utc) - entry_time).total_seconds() / 30)
@@ -412,9 +408,7 @@ class BinanceTrader:
             await self._close_trade(current_price, pnl_pct)
         elif ticks_held >= 2:
             signal, _ = self.ensemble.aggregate(df)
-            exit_signal = (self.position["side"] == "buy" and signal == -1) or \
-                          (self.position["side"] == "sell" and signal == 1)
-            if exit_signal:
+            if signal == -1:
                 await self._close_trade(current_price, pnl_pct)
 
     async def _close_trade(self, exit_price, pnl_pct):
