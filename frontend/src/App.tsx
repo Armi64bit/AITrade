@@ -18,6 +18,7 @@ import { fetchTndRate } from "./utils/currency";
 import Aurora from "./components/Aurora";
 import FadeContent from "./components/FadeContent";
 import SpotlightCard from "./components/SpotlightCard";
+import { Mascot, type MascotMood } from "./components/Mascot";
 import LiquidChrome from "./components/LiquidChrome";
 
 const LS_KEY = "aitrader_symbol";
@@ -45,6 +46,17 @@ export default function App() {
   useTradeSounds(trades);
 
   const status = restStatus ?? wsStatus;
+
+  const mascotMood: MascotMood = (() => {
+    if (optimizing) return "thinking";
+    if (status?.consecutive_losses !== undefined && status.consecutive_losses >= 3) return "stressed";
+    if (perf?.total_pnl !== undefined && perf?.total_pnl !== null) {
+      if (perf.total_pnl > 0) return "happy";
+      if (perf.total_pnl < 0) return "sad";
+    }
+    if (status?.running && !status.position) return "thinking";
+    return "neutral";
+  })();
 
   useEffect(() => {
     Promise.all([
@@ -167,34 +179,57 @@ export default function App() {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <Aurora />
       </div>
-      <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-4 md:px-6 lg:px-8 relative z-10">
+      <div className="mx-auto w-full max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-10 xl:px-12 relative z-10">
         <FadeContent>
-          <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <header className="mb-6 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">AI</div>
+              <div className="w-11 h-11 rounded-3xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-xl shadow-purple-500/20">AI</div>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-slate-100">AiTrader</h1>
-                <p className="text-xs text-slate-500">Self-improving AI trading bot</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-100">AiTrader</h1>
+                <p className="text-sm text-slate-500">Self-improving AI trading bot</p>
               </div>
             </div>
-            <div className="w-full sm:w-auto">
-              <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Live status</p>
+                <p className="mt-2 text-sm text-slate-300">{status?.running ? "Bot is running" : "Bot is stopped"}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
+                <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Active mode</p>
+                <p className="mt-2 text-sm font-semibold text-slate-100">{status?.paper_mode ? "Paper trading" : status?.running ? "Live trading" : "Stopped"}</p>
+              </div>
+              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Pair selector</p>
+                    <div className="mt-3">
+                      <SymbolSelector value={symbol} onChange={handleSymbolChange} disabled={changingSymbol} />
+                    </div>
+                  </div>
+                  <div className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-3">
+                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Status</p>
+                    <p className="mt-2 text-sm text-slate-200">{status?.running ? "Running" : "Offline"}</p>
+                    <p className="mt-1 text-xs text-slate-500">{status?.paper_mode ? "Paper trading" : "Live trading"}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </header>
         </FadeContent>
 
-        <FadeContent>
-          <Dashboard perf={perf} />
-        </FadeContent>
-        <FadeContent>
-          <MarketNews />
-        </FadeContent>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr] mb-6">
+          <FadeContent>
+            <Dashboard perf={perf} />
+          </FadeContent>
+          <FadeContent>
+            {/* <MarketNews /> */}
+                            <Mascot mood={mascotMood} />
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.6fr)] mb-6">
+          </FadeContent>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] xl:grid-cols-[minmax(0,2.2fr)_minmax(380px,1fr)] mb-6">
           <div className="space-y-4 min-w-0">
-            <FadeContent>
-              <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
-            </FadeContent>
             <FadeContent>
               <CandlestickChart data={candles} />
             </FadeContent>
@@ -203,9 +238,6 @@ export default function App() {
             </FadeContent>
             <FadeContent>
               <AIInsights onOptimize={handleOptimize} />
-            </FadeContent>
-            <FadeContent>
-              <StrategyVotes />
             </FadeContent>
           </div>
 
@@ -220,6 +252,13 @@ export default function App() {
                 onOptimize={handleOptimize}
                 optimizing={optimizing}
               />
+            </FadeContent>
+        
+            <FadeContent>
+              <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
+            </FadeContent>
+            <FadeContent>
+              <StrategyVotes />
             </FadeContent>
           </div>
         </div>

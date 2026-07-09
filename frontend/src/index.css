@@ -6,7 +6,10 @@
 
 body {
   margin: 0;
-  background: #0a0a0f;
+  min-height: 100vh;
+  background: radial-gradient(circle at 14% 10%, rgba(56,189,248,0.12), transparent 24%),
+              radial-gradient(circle at 86% 12%, rgba(168,85,247,0.14), transparent 20%),
+              linear-gradient(180deg, #05060e 0%, #080b14 42%, #090e1b 100%);
   color: #e2e8f0;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -19,14 +22,18 @@ body {
 }
 
 .card {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  border: 1px solid #2a2a4a;
-  border-radius: 12px;
-  padding: 1.25rem;
-  transition: border-color 0.2s;
+  background: rgba(8, 16, 32, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .card:hover {
-  border-color: #3a3a5a;
+  transform: translateY(-1px);
+  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.24);
 }
 
 .badge {
