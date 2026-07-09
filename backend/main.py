@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 import prometheus_client
 
-from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS
+from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN
 from trader import BinanceTrader
 from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
@@ -36,6 +36,27 @@ http_requests = prometheus_client.Counter(f"{METRIC_NAMESPACE}_http_requests_tot
 
 _tnd_rate = 3.0
 _tnd_rate_ts = 0.0
+
+
+async def push_to_betterstack():
+    while True:
+        try:
+            update_prometheus_metrics()
+            body = prometheus_client.generate_latest()
+            req = urllib.request.Request(
+                "https://telemetry.betterstack.com/api/v1/write",
+                data=body,
+                headers={
+                    "Content-Type": "text/plain",
+                    "Authorization": f"Bearer {BETTERSTACK_TOKEN}",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10):
+                pass
+        except Exception:
+            pass
+        await asyncio.sleep(60)
 
 
 def _fetch_tnd_rate():
@@ -82,6 +103,8 @@ async def lifespan(app: FastAPI):
     db.close()
     trader = BinanceTrader(BINANCE_API_KEY, BINANCE_SECRET_KEY, testnet=BINANCE_TESTNET)
     asyncio.create_task(trader.load_data())
+    if BETTERSTACK_TOKEN:
+        asyncio.create_task(push_to_betterstack())
     yield
     if trader:
         trader.stop()

@@ -40,24 +40,19 @@ npm install
 npm run dev
 ```
 
-### Monitoring
-```bash
-cd monitoring
-docker compose up
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000 (admin/admin)
-```
-
 ## DevOps
 
 ### CI/CD Pipeline (GitHub Actions)
-- **Lint** — Ruff (Python), TypeScript type check, Vite build
-- **Deploy** — Railway (backend) + Vercel (frontend) on main branch pushes
+- **Lint** — Ruff (Python), TypeScript type checking, Vite build
+- **Deploy** — Backend (Railway) + Frontend (Vercel) on main branch pushes
 
-### Monitoring (Prometheus + Grafana)
-- `/metrics` endpoint exposes: balance, bot state, win rate, consecutive losses, ensemble confidence, trade P&L, HTTP request rates
-- Grafana dashboard with stat panels, gauges, and time-series graphs
-- Consistent with the user's request to finish the project with devops/monitoring for recruiter appeal.
+### Monitoring (Better Stack)
+- `/metrics` endpoint exposes all bot metrics in Prometheus format
+- Metrics push every 60s to **Better Stack** (free hosted Prometheus-compatible platform)
+- GitHub login for team access — dashboards accessible anywhere
+- See `monitoring/betterstack-setup.md` for setup instructions
+
+Available metrics: balance, bot state, win rate, consecutive losses, ensemble confidence, trade P&L, HTTP request rates.
 
 ## Environment Variables
 | Variable | Description |
@@ -66,9 +61,10 @@ docker compose up
 | `BINANCE_SECRET_KEY` | Binance secret key |
 | `BINANCE_TESTNET` | `true` or `false` |
 | `OPENROUTER_API_KEY` | OpenRouter key for AI signals |
+| `BETTERSTACK_TOKEN` | Better Stack Telemetry source token |
 
 ## Tech Stack
 - **Frontend:** React 19, TypeScript 6, Vite 8, Tailwind CSS v4, shadcn/ui, React Bits, Lightweight Charts
 - **Backend**: FastAPI, CCXT, SQLAlchemy, Optuna, Prometheus client
 - **Deployment**: Railway (backend), Vercel (frontend)
-- **Monitoring**: Prometheus, Grafana
+- **Monitoring**: Better Stack (hosted Prometheus)
