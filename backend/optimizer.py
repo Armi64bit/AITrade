@@ -46,50 +46,27 @@ def backtest_strategy(df, params):
                 position = 1
                 entry_price = df["close"].iloc[i]
                 entry_idx = i
-            elif current_signal == -1 and prev_signal != -1:
-                position = -1
-                entry_price = df["close"].iloc[i]
-                entry_idx = i
         else:
             price = df["close"].iloc[i]
-            if position == 1:
-                ret = (price - entry_price) / entry_price
-                exit_now = False
-                if ret <= -sl:
-                    exit_now = True
-                elif ret >= tp:
-                    exit_now = True
-                elif current_signal == -1 and prev_signal != -1:
-                    exit_now = True
-                elif i - entry_idx > 48:
-                    exit_now = True
-                if exit_now:
-                    returns.append(ret)
-                    equity *= (1 + ret)
-                    peak = max(peak, equity)
-                    dd = (peak - equity) / peak
-                    max_dd = max(max_dd, dd)
-                    position = 0
-            elif position == -1:
-                ret = (entry_price - price) / entry_price
-                exit_now = False
-                if ret <= -sl:
-                    exit_now = True
-                elif ret >= tp:
-                    exit_now = True
-                elif current_signal == 1 and prev_signal != 1:
-                    exit_now = True
-                elif i - entry_idx > 48:
-                    exit_now = True
-                if exit_now:
-                    returns.append(ret)
-                    equity *= (1 + ret)
-                    peak = max(peak, equity)
-                    dd = (peak - equity) / peak
-                    max_dd = max(max_dd, dd)
-                    position = 0
+            ret = (price - entry_price) / entry_price
+            exit_now = False
+            if ret <= -sl:
+                exit_now = True
+            elif ret >= tp:
+                exit_now = True
+            elif current_signal == -1 and prev_signal != -1:
+                exit_now = True
+            elif i - entry_idx > 48:
+                exit_now = True
+            if exit_now:
+                returns.append(ret)
+                equity *= (1 + ret)
+                peak = max(peak, equity)
+                dd = (peak - equity) / peak
+                max_dd = max(max_dd, dd)
+                position = 0
 
-    if len(returns) < 5:
+    if len(returns) < 3:
         return -999
 
     mean_ret = np.mean(returns)
