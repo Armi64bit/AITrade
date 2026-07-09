@@ -296,12 +296,13 @@ export default function App() {
             <FadeContent>
               <CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} />
             </FadeContent>
+             <FadeContent>
+              <AIInsights onOptimize={handleOptimize} />
+            </FadeContent>
             <FadeContent>
               <TradeLog trades={trades} />
             </FadeContent>
-            <FadeContent>
-              <AIInsights onOptimize={handleOptimize} />
-            </FadeContent>
+           
           </div>
 
           <div className="space-y-4 min-w-0">
