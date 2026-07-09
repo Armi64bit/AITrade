@@ -43,11 +43,9 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
   if (loading) return null;
 
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold text-slate-200 mb-3">Strategy History</h3>
-
+    <>
       {history.length > 0 && (
-        <div className="space-y-2 text-sm max-h-80 overflow-y-auto">
+        <div className="space-y-2 text-sm">
           {history.map((entry) => {
             const isActive = entry.is_active;
             return (
@@ -92,6 +90,6 @@ export function StrategyHistory({ onActivate }: { onActivate: (params: Record<st
       {history.length === 0 && (
         <div className="text-center text-slate-500 text-xs py-4">No strategies saved yet. Run Auto-Optimize to create one.</div>
       )}
-    </div>
+    </>
   );
 }

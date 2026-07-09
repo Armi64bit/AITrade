@@ -24,6 +24,8 @@ const TYPE_ICONS: Record<string, string> = {
 export function ActivityLog() {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const perPage = 50;
 
   const fetchLog = useCallback(async () => {
     try {
@@ -39,16 +41,20 @@ export function ActivityLog() {
     return () => clearInterval(id);
   }, [fetchLog]);
 
+  useEffect(() => { setPage(0); }, [log.length]);
+
   if (loading) return null;
 
+  const pages = Math.ceil(log.length / perPage);
+  const pageLog = log.slice(page * perPage, (page + 1) * perPage);
+
   return (
-    <div className="card">
-      <h3 className="text-lg font-semibold text-slate-200 mb-3">Activity Log</h3>
+    <>
       {log.length === 0 ? (
         <div className="text-center text-slate-500 text-xs py-4">No activity yet.</div>
       ) : (
-        <div className="space-y-1 text-xs max-h-96 overflow-y-auto">
-          {log.map((entry, i) => (
+        <div className="space-y-1 text-xs">
+          {pageLog.map((entry, i) => (
             <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-slate-800/30">
               <span className="text-slate-600 shrink-0 w-16 text-right font-mono">{entry.time.slice(11, 19)}</span>
               <span className="shrink-0">{TYPE_ICONS[entry.type] ?? "📝"}</span>
@@ -57,6 +63,25 @@ export function ActivityLog() {
           ))}
         </div>
       )}
-    </div>
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-3">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded cursor-pointer disabled:cursor-default"
+          >
+            Prev
+          </button>
+          <span className="text-xs text-slate-500">{page + 1} / {pages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(pages - 1, p + 1))}
+            disabled={page >= pages - 1}
+            className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded cursor-pointer disabled:cursor-default"
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </>
   );
 }
