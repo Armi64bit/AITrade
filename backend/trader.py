@@ -2,6 +2,7 @@ import asyncio
 import time
 import json
 import urllib.request
+from collections import deque
 import ccxt.async_support as ccxt
 import pandas as pd
 import numpy as np
@@ -26,7 +27,8 @@ class BinanceTrader:
         self.running = False
         self.df = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
         self.position = None
-        self.consecutive_losses = 0
+        self._recent_pnls = deque(maxlen=30)
+        self._signal_confidences = deque(maxlen=20)
         self._data_loaded = False
         self._use_simulated = False
         self._sim_price = 60000.0
@@ -146,15 +148,28 @@ class BinanceTrader:
         now = time.time()
         if self._optimizing or len(self.df) < 50:
             return
-        if self._trades_since_optimize < 10:
+        if len(self._recent_pnls) < 15:
             return
-        if now - self._last_optimize_time < 3600:
+        if now - self._last_optimize_time < 1800:
+            return
+        # Composite check: optimize if performance is genuinely poor
+        recent = list(self._recent_pnls)
+        wins = sum(1 for p in recent if p > 0)
+        win_rate = wins / len(recent)
+        avg_pnl = sum(recent) / len(recent)
+        avg_conf = sum(self._signal_confidences) / len(self._signal_confidences) if self._signal_confidences else 0
+        reason = None
+        if win_rate < 0.35:
+            reason = f"win rate {win_rate:.0%} too low"
+        elif avg_pnl < -0.005:
+            reason = f"avg P&L {avg_pnl:.2%} negative"
+        if not reason and avg_conf < 0.12:
+            reason = f"ensemble confidence {avg_conf:.2f} too low"
+        if not reason:
             return
         self._optimizing = True
         self._last_optimize_time = time.time()
-        self._trades_since_optimize = 0
-        self._log_event("optimize", "Auto-optimizing after 2 consecutive losses...")
-        self.last_pair_switch_msg = "⚙️ Auto-optimizing strategy after 2 consecutive losses..."
+        self._log_event("optimize", f"Auto-optimizing ({reason})")
         try:
             from optimizer import run_optimization
             # Get current strategy's Sharpe and ID before optimizing
@@ -273,6 +288,7 @@ class BinanceTrader:
                     await self._real_tick()
 
                 signal, score = self.ensemble.aggregate(self.df)
+                self._signal_confidences.append(score)
 
                 if signal != 0 and self.position is None:
                     await self._open_trade(signal, self.ensemble.weights)
@@ -419,16 +435,13 @@ class BinanceTrader:
             self.ensemble.record_trade(pnl_pct)
             self._save_setting("ensemble_state", json.dumps(self.ensemble.get_state()))
 
+            self._recent_pnls.append(pnl_pct)
             if pnl_pct < 0:
-                self.consecutive_losses += 1
-                if self.consecutive_losses >= 5:
-                    asyncio.create_task(self._auto_optimize())
+                asyncio.create_task(self._auto_optimize())
             else:
-                self.consecutive_losses = 0
+                pass
             self.position = None
             self._current_trade_db_id = None
-            if self._last_optimize_time != 0:
-                self._trades_since_optimize += 1
             if self.stop_after_trade:
                 self.running = False
                 self.stop_after_trade = False
@@ -460,7 +473,7 @@ class BinanceTrader:
             "symbol": self.symbol,
             "balance_usdt": balance_usdt,
             "position": self.position,
-            "consecutive_losses": self.consecutive_losses,
+            "consecutive_losses": sum(1 for p in self._recent_pnls if p < 0),
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
             "stop_after_trade": self.stop_after_trade,
             "last_pair_switch_msg": self.last_pair_switch_msg,
