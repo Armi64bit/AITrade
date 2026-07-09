@@ -34,6 +34,7 @@ class BinanceTrader:
         self._sim_time = time.time()
         self._active_strategy_id = None
         self.stop_after_trade = False
+        self._pending_pair_switch = False
         self._tick_count = 0
         self.last_pair_switch_msg = None
         self._pending_symbol = None
@@ -198,7 +199,7 @@ class BinanceTrader:
             target = self._pending_symbol
             self._pending_symbol = None
             if self.position:
-                self.stop(after_trade=True)
+                self._pending_pair_switch = True
                 self._pending_symbol = target
                 return
             await self.set_symbol(target)
@@ -422,6 +423,14 @@ class BinanceTrader:
             if self.stop_after_trade:
                 self.running = False
                 self.stop_after_trade = False
+            elif self._pending_pair_switch and self._pending_symbol:
+                target = self._pending_symbol
+                self._pending_symbol = None
+                self._pending_pair_switch = False
+                await self.set_symbol(target)
+                self.last_pair_switch_msg = f"Auto-switched to {target} — best performing pair"
+                self._log_event("pair_switch", f"Auto-switched to {target}")
+                self.running = True
         except Exception as e:
             print(f"Close trade error: {e}")
 
