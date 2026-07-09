@@ -11,6 +11,7 @@ from models import SessionLocal, Trade, StrategyState, Setting
 from strategies import Ensemble
 from config import TRADE_CONFIG, SYMBOL, STABLE_COIN, INITIAL_BALANCE, SYMBOLS
 from concurrent.futures import ThreadPoolExecutor
+from ml_model import ml_model
 
 
 class BinanceTrader:
@@ -46,6 +47,7 @@ class BinanceTrader:
         self._activity_log: list[dict] = []
         self.ensemble = Ensemble()
         self._paper_mode = True
+        self._total_trades = 0
         # Restore balance from DB
         saved = self._load_setting("balance", str(INITIAL_BALANCE))
         try:
@@ -144,6 +146,11 @@ class BinanceTrader:
             self.running = False
             self._log_event("bot", "Bot stopped")
 
+    def _ml_predict(self):
+        if ml_model is None or not ml_model.model:
+            return 0, 0.0
+        return ml_model.predict(self.df)
+
     async def _auto_optimize(self):
         now = time.time()
         if self._optimizing or len(self.df) < 50:
@@ -211,6 +218,14 @@ class BinanceTrader:
             self.last_pair_switch_msg = None
             self._log_event("optimize", f"Auto-optimize failed: {e}")
         self._optimizing = False
+
+    async def _auto_train(self):
+        self._log_event("model", "Auto-training ML model on 50 trades")
+        result = await asyncio.to_thread(ml_model.train, self.df)
+        if result.get("status") == "success":
+            self._log_event("model", f"ML model trained: accuracy {result['accuracy']}, improvement {result.get('improvement', 0):+.3f}")
+        else:
+            self._log_event("model", f"ML model training failed: {result.get('message')}")
 
     def _init_pair_scores(self):
         return {s: {"score": 0.0} for s in SYMBOLS}
@@ -295,7 +310,14 @@ class BinanceTrader:
                 else:
                     await self._real_tick()
 
-                signal, score = self.ensemble.aggregate(self.df)
+                ml_signal, ml_conf = self._ml_predict()
+                ensemble_signal, ensemble_score = self.ensemble.aggregate(self.df)
+                score = max(ensemble_score, ml_conf) if ml_conf > 0 else ensemble_score
+                signal = 1 if (ensemble_signal == 1 or ml_signal == 1) else (-1 if (ensemble_signal == -1 or ml_signal == -1) else 0)
+                if ensemble_signal == 1 and ml_signal == -1:
+                    signal = 0
+                if ensemble_signal == -1 and ml_signal == 1:
+                    signal = 0
                 self._signal_confidences.append(score)
 
                 if signal == 1 and self.position is None:
@@ -438,7 +460,10 @@ class BinanceTrader:
             self._save_setting("ensemble_state", json.dumps(self.ensemble.get_state()))
 
             self._recent_pnls.append(pnl_pct)
+            self._total_trades += 1
             asyncio.create_task(self._auto_optimize())
+            if self._total_trades % 50 == 0 and not ml_model._training:
+                asyncio.create_task(self._auto_train())
             self.position = None
             self._current_trade_db_id = None
             if self.stop_after_trade:
@@ -472,6 +497,7 @@ class BinanceTrader:
             "symbol": self.symbol,
             "balance_usdt": balance_usdt,
             "position": self.position,
+            "total_trades": self._total_trades,
             "consecutive_losses": sum(1 for p in self._recent_pnls if p < 0),
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
             "stop_after_trade": self.stop_after_trade,

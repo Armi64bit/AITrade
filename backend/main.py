@@ -13,6 +13,7 @@ from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
 from ai_analyzer import generate_analysis
 from news_fetcher import fetch_news
+from ml_model import ml_model
 import pandas as pd
 
 
@@ -141,7 +142,25 @@ async def get_status():
         return {"error": "Trader not initialized"}
     status = await trader.get_status()
     indicators = trader.get_indicators()
-    return {**status, "indicators": indicators}
+    return {**status, "indicators": indicators, "ml_model": ml_model.get_info()}
+
+
+@app.post("/api/model/train")
+async def train_model():
+    if not trader:
+        return {"status": "error", "message": "Trader not initialized"}
+    if ml_model._training:
+        return {"status": "error", "message": "Training already in progress"}
+    df = trader.df
+    if len(df) < 50:
+        return {"status": "error", "message": "Need at least 50 candles of data"}
+    result = await asyncio.to_thread(ml_model.train, df)
+    return result
+
+
+@app.get("/api/model/status")
+async def model_status():
+    return ml_model.get_info()
 
 
 @app.post("/api/start")

@@ -6,6 +6,7 @@ export interface BotStatus {
   balance_usdt: number;
   position: any;
   consecutive_losses: number;
+  total_trades: number;
   last_price: number | null;
   stop_after_trade: boolean;
   last_pair_switch_msg: string | null;
@@ -16,6 +17,14 @@ export interface BotStatus {
     ema_long: number | null;
     rsi: number | null;
     last_price: number;
+  };
+  ml_model?: {
+    trained: boolean;
+    last_train_time: number | null;
+    trades_used: number;
+    accuracy: number;
+    improvement: number;
+    training: boolean;
   };
 }
 
@@ -91,5 +100,7 @@ export const api = {
   getTndRate: () => get<{ rate: number }>("/tnd-rate"),
   getActivityLog: () => get<{ time: string; type: string; message: string }[]>("/activity-log"),
   getNews: () => get<{ news: { title: string; source: string; url: string; published_at: number; summary: string }[] }>("/news"),
+  trainModel: () => post<{ status: string; trades_used?: number; accuracy?: number; improvement?: number; message?: string }>("/model/train"),
+  getModelStatus: () => get<{ trained: boolean; last_train_time: number | null; trades_used: number; accuracy: number; improvement: number; training: boolean }>("/model/status"),
   getStrategyVotes: () => get<{ votes: { name: string; signal: number; confidence: number; weight: number }[]; tracking: Record<string, { wins: number; losses: number; trades: number }> }>("/strategy-votes"),
 };

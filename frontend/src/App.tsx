@@ -42,6 +42,7 @@ export default function App() {
   const [pendingOptimize, setPendingOptimize] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState(() => localStorage.getItem("aitrader_history_tab") || "strategies");
+  const [training, setTraining] = useState(false);
 
   useTradeSounds(trades);
 
@@ -147,6 +148,13 @@ export default function App() {
   };
 
   const handleStart = async () => { await api.startBot(); };
+
+  const handleTrain = async () => {
+    setTraining(true);
+    try { await api.trainModel(); } catch {}
+    setTraining(false);
+    await pollAll();
+  };
 
   const doOptimize = async () => {
     setOptimizing(true);
@@ -286,7 +294,7 @@ export default function App() {
           </FadeContent>
           <FadeContent>
             {/* <MarketNews /> */}
-                            <Mascot mood={mascotMood} perf={perf} />
+                            <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} />
 
           </FadeContent>
         </div>

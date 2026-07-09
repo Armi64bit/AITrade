@@ -1,4 +1,3 @@
-// import * as React from "react";
 import type { Performance } from "../api/client";
 import { money } from "../utils/currency";
 
@@ -8,6 +7,9 @@ interface MascotProps {
   mood: MascotMood;
   description?: string;
   perf?: Performance | null;
+  mlModel?: { trained: boolean; accuracy: number; trades_used: number; improvement: number; training: boolean } | null;
+  onTrain?: () => void;
+  training?: boolean;
 }
 
 const moodConfig: Record<MascotMood, { gifUrl: string; title: string; label: string; tone: string }> = {
@@ -43,14 +45,13 @@ const moodConfig: Record<MascotMood, { gifUrl: string; title: string; label: str
   }
 };
 
-export function Mascot({ mood, description, perf }: MascotProps) {
+export function Mascot({ mood, description, perf, mlModel, onTrain, training }: MascotProps) {
   const config = moodConfig[mood];
   const isGreen = perf?.total_pnl !== undefined && perf?.total_pnl >= 0;
 
   return (
     <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 p-3 shadow-[0_18px_55px_rgba(0,0,0,0.25)] flex flex-col h-full">
       <div className="flex gap-3 flex-1">
-        {/* Left: Mascot */}
         <div className="flex flex-col flex-shrink-0">
           <div className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-br ${config.tone} p-2 shadow-[0_10px_40px_rgba(0,0,0,0.2)] overflow-hidden w-24 h-24`}>
             <img 
@@ -66,8 +67,36 @@ export function Mascot({ mood, description, perf }: MascotProps) {
           </div>
         </div>
 
-        {/* Right: Portfolio Stats */}
-        {perf && (
+        {mlModel?.trained ? (
+          <div className="flex-1 flex flex-col justify-between min-w-0">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-slate-900/50 rounded-lg p-2">
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Model Acc</p>
+                <p className="text-sm font-bold text-emerald-400">{(mlModel.accuracy * 100).toFixed(1)}%</p>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-2">
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Improve</p>
+                <p className={`text-sm font-bold ${mlModel.improvement >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {mlModel.improvement >= 0 ? "+" : ""}{(mlModel.improvement * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-2">
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Trades</p>
+                <p className="text-sm font-bold text-blue-400">{mlModel.trades_used}</p>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-2">
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Status</p>
+                <p className="text-sm font-bold text-purple-400">{training ? "Training..." : "Ready"}</p>
+              </div>
+            </div>
+            {onTrain && (
+              <button onClick={onTrain} disabled={training}
+                className="mt-2 w-full text-xs font-medium py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white cursor-pointer transition-colors">
+                {training ? "Training..." : "Train Model"}
+              </button>
+            )}
+          </div>
+        ) : perf ? (
           <div className="flex-1 flex flex-col justify-between min-w-0">
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-slate-900/50 rounded-lg p-2">
@@ -95,11 +124,16 @@ export function Mascot({ mood, description, perf }: MascotProps) {
                 </p>
               </div>
             </div>
+            {onTrain && (
+              <button onClick={onTrain} disabled={training}
+                className="mt-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white cursor-pointer transition-colors">
+                {training ? "Training..." : "Train Model"}
+              </button>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Progress Bar */}
       <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-800">
         <div className={`h-full rounded-full bg-gradient-to-r ${config.tone} animate-pulse`} />
       </div>
