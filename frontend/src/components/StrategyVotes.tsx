@@ -12,7 +12,7 @@ interface Tracking {
   [name: string]: { wins: number; losses: number; trades: number };
 }
 
-const SIGNAL_LABELS: Record<number, string> = { 1: "BUY", 0: "—", -1: "SELL" };
+const SIGNAL_LABELS: Record<number, string> = { 1: "BUY", 0: "-", -1: "SELL" };
 const SIGNAL_COLORS: Record<number, string> = {
   1: "bg-emerald-500/20 text-emerald-400",
   -1: "bg-red-500/20 text-red-400",
