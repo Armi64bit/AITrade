@@ -2,6 +2,7 @@ const BASE = "https://aitrade-production-ecba.up.railway.app/api";
 
 export interface BotStatus {
   running: boolean;
+  symbol: string;
   balance_usdt: number;
   position: any;
   consecutive_losses: number;

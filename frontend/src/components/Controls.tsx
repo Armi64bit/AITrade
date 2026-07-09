@@ -22,16 +22,17 @@ function interpretRSI(v: number): string {
   return "No clear direction";
 }
 
-export function Controls({ status, onStart, onStop, symbol }: {
+export function Controls({ status, onStart, onStop, symbol, onSymbolChange }: {
   status: BotStatus | null;
   onStart: () => void;
   onStop: () => void;
   symbol: string;
+  onSymbolChange?: (s: string) => void;
 }) {
   const running = status?.running ?? false;
   const price = status?.last_price;
   const rsi = status?.indicators?.rsi;
-  const sym = symbol || "BTC/USDT";
+  const currentSymbol = status?.symbol || symbol || "BTC/USDT";
   const stoppingAfterTrade = status?.stop_after_trade ?? false;
   const switchMsg = status?.last_pair_switch_msg;
 
@@ -69,7 +70,7 @@ export function Controls({ status, onStart, onStop, symbol }: {
 
       <div className="grid grid-cols-1 gap-3 mb-4 text-sm">
         <div className="bg-slate-800/50 px-4 py-3 rounded flex items-center gap-3">
-          <CryptoIcon symbol={sym} size={36} />
+          <CryptoIcon symbol={currentSymbol} size={36} />
           <div className="flex-1">
             <div className="text-slate-400 text-xs uppercase tracking-wider">Current Price</div>
             <div className="text-xl font-bold text-slate-100">

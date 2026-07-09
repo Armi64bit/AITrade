@@ -14,7 +14,7 @@ type HistoryTab = "strategies" | "daily" | "log";
 
 export function RightSidebar({
   status, symbol, onStart, onStop,
-  strategy, onOptimize, optimizing, onActivateStrategy, trades,
+  strategy, onOptimize, optimizing, onActivateStrategy, trades, onSymbolChange,
 }: {
   status: BotStatus | null;
   symbol: string;
@@ -25,6 +25,7 @@ export function RightSidebar({
   optimizing: boolean;
   onActivateStrategy: (params: Record<string, number>, sharpe: number | null, total_trades?: number, wins?: number, losses?: number) => void;
   trades: Trade[];
+  onSymbolChange?: (s: string) => void;
 }) {
   const [tab, setTab] = useState<Tab>(() => {
     const saved = localStorage.getItem(LS_TAB);
@@ -72,7 +73,7 @@ export function RightSidebar({
 
       {tab === "bot" && (
         <>
-          <Controls status={status} onStart={onStart} onStop={onStop} symbol={symbol} />
+          <Controls status={status} onStart={onStart} onStop={onStop} symbol={symbol} onSymbolChange={onSymbolChange} />
           <StrategyPanel strategy={strategy} onOptimize={onOptimize} optimizing={optimizing} />
         </>
       )}

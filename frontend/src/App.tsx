@@ -53,6 +53,7 @@ export default function App() {
       setPerf(p);
       setTrades(t);
       if (st) setStrategy(st);
+      setSymbol(prev => s?.symbol && s.symbol !== prev ? s.symbol : prev);
     } catch {}
   }, []);
 
@@ -163,6 +164,7 @@ export default function App() {
             optimizing={optimizing}
             onActivateStrategy={handleActivateStrategy}
             trades={trades}
+            onSymbolChange={handleSymbolChange}
           />
         </div>
       </div>

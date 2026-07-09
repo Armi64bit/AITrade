@@ -43,6 +43,19 @@ class BinanceTrader:
         self._activity_log: list[dict] = []
         self.ensemble = Ensemble()
         self._paper_mode = True
+        # Restore balance from DB
+        saved = self._load_setting("balance", str(INITIAL_BALANCE))
+        try:
+            self._balance = float(saved)
+        except:
+            self._balance = INITIAL_BALANCE
+        # Restore ensemble state from DB
+        ens_state = self._load_setting("ensemble_state", "")
+        if ens_state:
+            try:
+                self.ensemble.set_state(json.loads(ens_state))
+            except:
+                pass
 
     def _log_event(self, event_type: str, message: str):
         self._activity_log.append({
@@ -392,9 +405,11 @@ class BinanceTrader:
                 trade.exit_time = datetime.now(timezone.utc)
                 trade.status = "closed"
                 db.commit()
+                self._save_setting("balance", f"{self._balance:.2f}")
             db.close()
 
             self.ensemble.record_trade(pnl_pct)
+            self._save_setting("ensemble_state", json.dumps(self.ensemble.get_state()))
 
             if pnl_pct < 0:
                 self.consecutive_losses += 1
@@ -425,6 +440,7 @@ class BinanceTrader:
         balance_usdt = self._balance
         return {
             "running": self.running,
+            "symbol": self.symbol,
             "balance_usdt": balance_usdt,
             "position": self.position,
             "consecutive_losses": self.consecutive_losses,

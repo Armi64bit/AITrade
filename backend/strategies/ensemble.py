@@ -66,23 +66,33 @@ class Ensemble:
         return 0, abs(score)
 
     def record_trade(self, pnl_pct: float):
-        """After a trade closes, reward/punish strategies based on whether their last vote was correct."""
         for v in self._last_votes:
             track = self._tracking[v.name]
             track["trades"] += 1
             if v.signal == 0:
                 continue
-            # The trade was profitable: strategies that voted in the right direction get rewarded
-            correct = (pnl_pct > 0 and v.signal == 1) or (pnl_pct < 0 and v.signal == -1) or (pnl_pct == 0)
-            # Actually for short trades (signal=-1), profit comes from price going down
-            # We don't track trade direction here, just the profit result
             if pnl_pct > 0:
                 track["wins"] += 1
             elif pnl_pct < 0:
                 track["losses"] += 1
-            # Adjust weight dynamically
             win_rate = track["wins"] / max(track["trades"], 1)
             self.weights[v.name] = max(0.1, min(2.0, win_rate * 2))
+
+    def get_state(self) -> dict:
+        return {"weights": self.weights, "tracking": self._tracking}
+
+    def set_state(self, state: dict):
+        if "weights" in state:
+            for k in self.weights:
+                self.weights[k] = state["weights"].get(k, 1.0)
+        if "tracking" in state:
+            for k in self._tracking:
+                saved = state["tracking"].get(k, {})
+                self._tracking[k] = {
+                    "wins": saved.get("wins", 0),
+                    "losses": saved.get("losses", 0),
+                    "trades": saved.get("trades", 0),
+                }
 
     def get_tracking(self) -> dict:
         return self._tracking
