@@ -7,8 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import os
-from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN
+from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN, BETTERSTACK_HOST
 from trader import BinanceTrader
 from models import SessionLocal, Trade, StrategyState, Setting
 from optimizer import run_optimization
