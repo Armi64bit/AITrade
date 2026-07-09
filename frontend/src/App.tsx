@@ -171,41 +171,23 @@ export default function App() {
       <Dashboard perf={perf} />
       <MarketNews />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-        <div className="lg:col-span-3 space-y-4">
-          <CandlestickChart data={candles} />
-          <TradeLog trades={trades} />
-
-          <div className="card">
-            <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4 max-w-md">
-              {(["strategies", "daily", "log"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                    historyTab === t
-                      ? "bg-slate-700 text-slate-100"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  {t === "strategies" ? "Strategies" : t === "daily" ? "Daily" : "Activity Log"}
-                </button>
-              ))}
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+        <div className="space-y-4">
+          <div className="card h-full">
+            <h3 className="text-sm font-semibold text-slate-300 mb-4">Activity Log</h3>
             <div className="max-h-96 overflow-y-auto">
-              {historyTab === "strategies" ? (
-                <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
-              ) : historyTab === "daily" ? (
-                <DailyPerformance key="daily" trades={trades} />
-              ) : (
-                <ActivityLog key="log" />
-              )}
+              <ActivityLog key="log" />
             </div>
           </div>
+        </div>
 
+        <div className="lg:col-span-2 space-y-4">
+          <CandlestickChart data={candles} />
+          <TradeLog trades={trades} />
           <AIInsights onOptimize={handleOptimize} />
           <StrategyVotes />
         </div>
+
         <div className="space-y-4">
           <RightSidebar
             status={status}
@@ -216,6 +198,33 @@ export default function App() {
             onOptimize={handleOptimize}
             optimizing={optimizing}
           />
+        </div>
+
+        <div className="space-y-4">
+          <div className="card">
+            <div className="flex bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
+              {(["strategies", "daily"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                    historyTab === t
+                      ? "bg-slate-700 text-slate-100"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {t === "strategies" ? "Strategies" : "Daily"}
+                </button>
+              ))}
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+              {historyTab === "strategies" ? (
+                <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
+              ) : (
+                <DailyPerformance key="daily" trades={trades} />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
