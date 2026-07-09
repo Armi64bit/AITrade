@@ -223,7 +223,7 @@ export default function App() {
           </FadeContent>
           <FadeContent>
             {/* <MarketNews /> */}
-                            <Mascot mood={mascotMood} />
+                            <Mascot mood={mascotMood} perf={perf} />
 
           </FadeContent>
         </div>
