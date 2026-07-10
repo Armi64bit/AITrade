@@ -312,16 +312,16 @@ class BinanceTrader:
 
                 ml_signal, ml_conf = self._ml_predict()
                 ensemble_signal, ensemble_score = self.ensemble.aggregate(self.df)
+                buy_count = sum(1 for v in self.ensemble.get_last_votes() if v.signal == 1 and v.confidence > 0)
+                sell_count = sum(1 for v in self.ensemble.get_last_votes() if v.signal == -1 and v.confidence > 0)
                 score = max(ensemble_score, ml_conf) if ml_conf > 0 else ensemble_score
-                signal = 1 if (ensemble_signal == 1 or ml_signal == 1) else (-1 if (ensemble_signal == -1 or ml_signal == -1) else 0)
-                if ensemble_signal == 1 and ml_signal == -1:
-                    signal = 0
-                if ensemble_signal == -1 and ml_signal == 1:
-                    signal = 0
+                signal = 1 if buy_count > sell_count and ensemble_signal >= 0 else 0
+                if ml_signal == 1 and ml_conf > 0.5:
+                    signal = 1
                 self._signal_confidences.append(score)
 
                 if signal == 1 and self.position is None:
-                    await self._open_trade(signal, self.ensemble.weights)
+                    await self._open_trade(1, self.ensemble.weights)
 
                 if self.position:
                     await self._check_exit(self.df)
