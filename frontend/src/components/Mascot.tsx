@@ -7,7 +7,7 @@ interface MascotProps {
   mood: MascotMood;
   description?: string;
   perf?: Performance | null;
-  mlModel?: { trained: boolean; accuracy: number; trades_used: number; improvement: number; training: boolean } | null;
+  mlModel?: { trained: boolean; accuracy: number; trades_used: number; trades_available: number; trades_since_last: number; last_train_time: number | null; improvement: number; training: boolean } | null;
   onTrain?: () => void;
   training?: boolean;
 }
@@ -69,29 +69,35 @@ export function Mascot({ mood, description, perf, mlModel, onTrain, training }: 
 
         {mlModel?.trained ? (
           <div className="flex-1 flex flex-col justify-between min-w-0">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-slate-900/50 rounded-lg p-2">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Model Acc</p>
-                <p className="text-sm font-bold text-emerald-400">{(mlModel.accuracy * 100).toFixed(1)}%</p>
+            <div className="grid grid-cols-2 gap-1">
+              <div className="bg-slate-900/50 rounded-lg p-1.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Acc</p>
+                <p className="text-xs font-bold text-emerald-400">{(mlModel.accuracy * 100).toFixed(1)}%</p>
               </div>
-              <div className="bg-slate-900/50 rounded-lg p-2">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Improve</p>
-                <p className={`text-sm font-bold ${mlModel.improvement >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              <div className="bg-slate-900/50 rounded-lg p-1.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Improve</p>
+                <p className={`text-xs font-bold ${mlModel.improvement >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                   {mlModel.improvement >= 0 ? "+" : ""}{(mlModel.improvement * 100).toFixed(1)}%
                 </p>
               </div>
-              <div className="bg-slate-900/50 rounded-lg p-2">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Trades</p>
-                <p className="text-sm font-bold text-blue-400">{mlModel.trades_used}</p>
+              <div className="bg-slate-900/50 rounded-lg p-1.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Trades</p>
+                <p className="text-xs font-bold text-blue-400">{mlModel.trades_used}/{mlModel.trades_available}</p>
               </div>
-              <div className="bg-slate-900/50 rounded-lg p-2">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Status</p>
-                <p className="text-sm font-bold text-purple-400">{training ? "Training..." : "Ready"}</p>
+              <div className="bg-slate-900/50 rounded-lg p-1.5">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Since Train</p>
+                <p className="text-xs font-bold text-orange-400">{mlModel.trades_since_last}</p>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-1.5 col-span-2">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Last Train</p>
+                <p className="text-xs font-bold text-slate-200">
+                  {mlModel.last_train_time ? new Date(mlModel.last_train_time * 1000).toLocaleString() : "Never"}
+                </p>
               </div>
             </div>
             {onTrain && (
               <button onClick={onTrain} disabled={training}
-                className="mt-2 w-full text-xs font-medium py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white cursor-pointer transition-colors">
+                className="mt-1.5 w-full text-xs font-medium py-1 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white cursor-pointer transition-colors">
                 {training ? "Training..." : "Train Model"}
               </button>
             )}

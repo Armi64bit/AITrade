@@ -162,10 +162,15 @@ class MLModel:
             return 0, 0.0
 
     def get_info(self):
+        db = SessionLocal()
+        current_trades = db.query(Trade).filter(Trade.status == "closed").count()
+        db.close()
         return {
             "trained": self._last_train_time is not None,
             "last_train_time": self._last_train_time,
             "trades_used": self._last_train_trades,
+            "trades_available": current_trades,
+            "trades_since_last": current_trades - self._last_train_trades,
             "accuracy": round(self._last_accuracy, 3) if self._last_accuracy else 0,
             "improvement": round(self._last_improvement, 3),
             "training": self._training,

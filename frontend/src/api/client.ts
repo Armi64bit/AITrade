@@ -22,6 +22,8 @@ export interface BotStatus {
     trained: boolean;
     last_train_time: number | null;
     trades_used: number;
+    trades_available: number;
+    trades_since_last: number;
     accuracy: number;
     improvement: number;
     training: boolean;
