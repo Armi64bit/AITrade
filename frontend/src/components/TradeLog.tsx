@@ -1,8 +1,15 @@
+import { useState, useCallback } from "react";
 import type { Trade } from "../api/client";
 import { CryptoIcon } from "./CryptoIcon";
 import { money, pct } from "../utils/currency";
 
+const TRADES_PER_PAGE = 10;
+
 export function TradeLog({ trades }: { trades: Trade[] }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.ceil(trades.length / TRADES_PER_PAGE) || 1;
+  const pageTrades = trades.slice(page * TRADES_PER_PAGE, (page + 1) * TRADES_PER_PAGE);
+
   return (
     <div className="card w-full min-w-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
@@ -23,7 +30,7 @@ export function TradeLog({ trades }: { trades: Trade[] }) {
             </tr>
           </thead>
           <tbody>
-            {trades.map((t) => {
+            {pageTrades.map((t) => {
               const won = t.pnl != null && t.pnl >= 0;
               return (
                 <tr key={t.id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
@@ -63,6 +70,25 @@ export function TradeLog({ trades }: { trades: Trade[] }) {
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-3">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded cursor-pointer disabled:cursor-default"
+          >
+            Prev
+          </button>
+          <span className="text-xs text-slate-500">{page + 1} / {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-600 rounded cursor-pointer disabled:cursor-default"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }

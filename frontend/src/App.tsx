@@ -316,41 +316,37 @@ export default function App() {
             <Dashboard perf={perf} />
           </FadeContent>
           <FadeContent>
-            {/* <MarketNews /> */}
-                            <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} buffs={lastBuffs} />
-
+            <RightSidebar
+              status={status}
+              symbol={symbol}
+              onStart={handleStart}
+              onStop={handleStop}
+              strategy={strategy}
+              onOptimize={handleOptimize}
+              optimizing={optimizing}
+            />
           </FadeContent>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] xl:grid-cols-[minmax(0,2.2fr)_minmax(380px,1fr)] mb-6">
-          <div className="space-y-4 min-w-0">
-            <FadeContent>
-              <CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} />
-            </FadeContent>
-             <FadeContent>
-              <AIInsights onOptimize={handleOptimize} />
-            </FadeContent>
-            <FadeContent>
-              <TradeLog trades={trades} />
-            </FadeContent>
-           
-          </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr_1fr] mb-6">
+          <FadeContent>
+            <CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} />
+          </FadeContent>
+          <FadeContent>
+            <AIInsights onOptimize={handleOptimize} />
+          </FadeContent>
+          <FadeContent>
+            <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} buffs={lastBuffs} />
+          </FadeContent>
+        </div>
 
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr] mb-6">
+          <FadeContent>
+            <TradeLog trades={trades} />
+          </FadeContent>
           <div className="space-y-4 min-w-0">
             <FadeContent>
-              <RightSidebar
-                status={status}
-                symbol={symbol}
-                onStart={handleStart}
-                onStop={handleStop}
-                strategy={strategy}
-                onOptimize={handleOptimize}
-                optimizing={optimizing}
-              />
-            </FadeContent>
-        
-            <FadeContent>
-              <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
+              <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog /></SpotlightCard>
             </FadeContent>
             <FadeContent>
               <DecisionBoard status={status} />
