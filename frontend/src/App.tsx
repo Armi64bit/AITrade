@@ -324,19 +324,17 @@ export default function App() {
             { key: "decisions", content: <FadeContent><DecisionBoard status={status} /></FadeContent>, minW: 3, minH: 3 },
             { key: "history", content: <FadeContent><div className="card w-full min-w-0 overflow-hidden flex flex-col"><div className="flex flex-wrap bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">{(["strategies", "daily"] as const).map((t) => (<button key={t} onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }} className={`flex-1 min-w-[120px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${historyTab === t ? "bg-slate-700 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}>{t === "strategies" ? "Strategies" : "Daily"}</button>))}</div><div className="max-h-[min(24rem,60vh)] overflow-y-auto pr-1">{historyTab === "strategies" ? <StrategyHistory key="strategies" onActivate={handleActivateStrategy} /> : <DailyPerformance key="daily" trades={trades} />}</div></div></FadeContent>, minW: 6, minH: 4 },
           ]}
-          defaultLayout={{
-            lg: [
-              { i: "dashboard", x: 0, y: 0, w: 7, h: 2 },
-              { i: "mascot", x: 7, y: 0, w: 5, h: 2 },
-              { i: "chart", x: 0, y: 2, w: 7, h: 4 },
-              { i: "ai-insights", x: 0, y: 6, w: 7, h: 3 },
-              { i: "trade-log", x: 0, y: 9, w: 7, h: 3 },
-              { i: "sidebar", x: 7, y: 2, w: 5, h: 4 },
-              { i: "activity", x: 7, y: 6, w: 5, h: 3 },
-              { i: "decisions", x: 7, y: 9, w: 5, h: 3 },
-              { i: "history", x: 0, y: 12, w: 12, h: 4 },
-            ],
-          }}
+          defaultLayout={[
+            { i: "dashboard", x: 0, y: 0, w: 7, h: 2 },
+            { i: "mascot", x: 7, y: 0, w: 5, h: 2 },
+            { i: "chart", x: 0, y: 2, w: 7, h: 4 },
+            { i: "ai-insights", x: 0, y: 6, w: 7, h: 3 },
+            { i: "trade-log", x: 0, y: 9, w: 7, h: 3 },
+            { i: "sidebar", x: 7, y: 2, w: 5, h: 4 },
+            { i: "activity", x: 7, y: 6, w: 5, h: 3 },
+            { i: "decisions", x: 7, y: 9, w: 5, h: 3 },
+            { i: "history", x: 0, y: 12, w: 12, h: 4 },
+          ]}
         />
 
         {showStopDialog && (
