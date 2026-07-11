@@ -53,19 +53,16 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
       cols={{ lg: 12, md: 6, sm: 4 }}
       rowHeight={120}
       onLayoutChange={handleLayoutChange}
-      draggableHandle=".drag-handle"
       isResizable={true}
       compactType="vertical"
       margin={[16, 16]}
     >
       {widgets.map((w) => (
         <div key={w.key} className="relative group min-h-[60px]">
-          <div className="drag-handle absolute top-0 left-0 right-0 h-6 z-10 cursor-grab active:cursor-grabbing flex items-center px-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="flex gap-1">
-              <span className="w-4 h-0.5 rounded bg-slate-600" />
-              <span className="w-4 h-0.5 rounded bg-slate-600" />
-              <span className="w-4 h-0.5 rounded bg-slate-600" />
-            </div>
+          <div className="absolute top-0.5 left-0.5 z-10 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <span className="w-3 h-0.5 rounded bg-slate-600" />
+            <span className="w-3 h-0.5 rounded bg-slate-600" />
+            <span className="w-3 h-0.5 rounded bg-slate-600" />
           </div>
           {w.content}
         </div>
