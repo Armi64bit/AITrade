@@ -7,6 +7,8 @@ const GridLayout = (RGL as any).WidthProvider ? (RGL as any).WidthProvider(RGL) 
 interface Widget {
   key: string;
   content: ReactNode;
+  minW?: number;
+  minH?: number;
 }
 
 interface DashboardGridProps {
