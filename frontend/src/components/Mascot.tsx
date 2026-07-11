@@ -1,6 +1,7 @@
 import type { Performance } from "../api/client";
 import { money } from "../utils/currency";
 import { ModelViz } from "./ModelViz";
+import { BuffBar, type TrainingBuffs } from "./BuffBar";
 
 export type MascotMood = "happy" | "sad" | "thinking" | "stressed" | "neutral";
 
@@ -11,6 +12,7 @@ interface MascotProps {
   mlModel?: { trained: boolean; accuracy: number; trades_used: number; trades_available: number; trades_since_last: number; last_train_time: number | null; improvement: number; training: boolean } | null;
   onTrain?: () => void;
   training?: boolean;
+  buffs?: TrainingBuffs | null;
 }
 
 const moodConfig: Record<MascotMood, { gifUrl: string; title: string; label: string; tone: string }> = {
@@ -46,7 +48,7 @@ const moodConfig: Record<MascotMood, { gifUrl: string; title: string; label: str
   }
 };
 
-export function Mascot({ mood, description, perf, mlModel, onTrain, training }: MascotProps) {
+export function Mascot({ mood, description, perf, mlModel, onTrain, training, buffs }: MascotProps) {
   const config = moodConfig[mood];
   const isGreen = perf?.total_pnl !== undefined && perf?.total_pnl >= 0;
 
@@ -145,6 +147,7 @@ export function Mascot({ mood, description, perf, mlModel, onTrain, training }: 
       <div className="mt-3 h-1 overflow-hidden rounded-full bg-slate-800">
         <div className={`h-full rounded-full bg-gradient-to-r ${config.tone} animate-pulse`} />
       </div>
+      <BuffBar buffs={buffs} />
     </div>
   );
 }

@@ -14,6 +14,8 @@ import { StrategyHistory } from "./components/StrategyHistory";
 import { DailyPerformance } from "./components/DailyPerformance";
 import { ActivityLog } from "./components/ActivityLog";
 import { StopDialog } from "./components/StopDialog";
+import type { TrainingBuffs } from "./components/BuffBar";
+import { BuffBar } from "./components/BuffBar";
 import { fetchTndRate, money, pct } from "./utils/currency";
 import Aurora from "./components/Aurora";
 import FadeContent from "./components/FadeContent";
@@ -43,6 +45,11 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [historyTab, setHistoryTab] = useState(() => localStorage.getItem("aitrader_history_tab") || "strategies");
   const [training, setTraining] = useState(false);
+  const [lastBuffs, setLastBuffs] = useState<TrainingBuffs | null>(() => {
+    const saved = localStorage.getItem("aitrader_buffs");
+    if (saved) try { return JSON.parse(saved); } catch {}
+    return null;
+  });
 
   useTradeSounds(trades);
 
@@ -151,9 +158,26 @@ export default function App() {
 
   const handleTrain = async () => {
     setTraining(true);
+    const snapWinRate = perf?.win_rate ?? 0;
+    const snapBalance = perf?.current_balance ?? 0;
+    const snapAcc = status?.ml_model?.accuracy ?? 0;
     try { await api.trainModel(); } catch {}
-    setTraining(false);
+    const [status2, perf2, ml2] = await Promise.all([api.getStatus(), api.getPerformance(), api.getModelStatus()]);
+    setRestStatus(status2);
+    setPerf(perf2);
     await pollAll();
+    setTraining(false);
+    const newAcc = ml2.accuracy ?? status2?.ml_model?.accuracy ?? 0;
+    const newWR = perf2.win_rate;
+    const newBal = perf2.current_balance;
+    const buffs: TrainingBuffs = {
+      accuracy: { value: newAcc, change: newAcc - snapAcc },
+      winRate: { value: newWR, change: newWR - snapWinRate },
+      balance: { value: newBal, change: newBal - snapBalance },
+      trainedAt: Date.now(),
+    };
+    setLastBuffs(buffs);
+    localStorage.setItem("aitrader_buffs", JSON.stringify(buffs));
   };
 
   const doOptimize = async () => {
@@ -294,7 +318,7 @@ export default function App() {
           </FadeContent>
           <FadeContent>
             {/* <MarketNews /> */}
-                            <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} />
+                            <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} buffs={lastBuffs} />
 
           </FadeContent>
         </div>
