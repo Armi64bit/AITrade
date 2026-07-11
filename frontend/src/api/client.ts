@@ -104,5 +104,6 @@ export const api = {
   getNews: () => get<{ news: { title: string; source: string; url: string; published_at: number; summary: string }[] }>("/news"),
   trainModel: () => post<{ status: string; trades_used?: number; accuracy?: number; improvement?: number; message?: string }>("/model/train"),
   getModelStatus: () => get<{ trained: boolean; last_train_time: number | null; trades_used: number; accuracy: number; improvement: number; training: boolean }>("/model/status"),
+  getModelPredictLive: () => get<{ signal: number; confidence: number; coefficients: number[] | null; prediction: { features: number[]; feature_names: string[]; prob_win: number; prob_loss: number } | null }>("/model/predict-live"),
   getStrategyVotes: () => get<{ votes: { name: string; signal: number; confidence: number; weight: number }[]; tracking: Record<string, { wins: number; losses: number; trades: number }> }>("/strategy-votes"),
 };

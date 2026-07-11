@@ -163,6 +163,19 @@ async def model_status():
     return ml_model.get_info()
 
 
+@app.get("/api/model/predict-live")
+async def model_predict_live():
+    if not trader or not ml_model.model:
+        return {"signal": 0, "confidence": 0.0, "prediction": None, "coefficients": None}
+    sig, conf = ml_model.predict(trader.df)
+    return {
+        "signal": sig,
+        "confidence": conf,
+        "prediction": ml_model.get_last_prediction(),
+        "coefficients": ml_model.get_coefficients(),
+    }
+
+
 @app.post("/api/start")
 async def start_bot():
     if trader and not trader.running:

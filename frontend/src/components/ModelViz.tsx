@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { api } from "../api/client";
 
 const INPUT_NEURONS = 5;
 const HIDDEN_NEURONS = 8;
 const OUTPUT_NEURONS = 2;
+const FEATURE_NAMES = ["price", "ema_gap", "rsi", "volatility", "momentum"];
 
 interface ModelVizProps {
   mlModel: {
@@ -18,12 +20,23 @@ interface ModelVizProps {
   };
 }
 
-function Neuron({ cx, cy, label, pulse }: { cx: number; cy: number; label?: string; pulse?: boolean }) {
+interface LivePrediction {
+  signal: number;
+  confidence: number;
+  coefficients: number[] | null;
+  prediction: {
+    features: number[];
+    feature_names: string[];
+    prob_win: number;
+    prob_loss: number;
+  } | null;
+}
+
+function Neuron({ cx, cy, label, active, pulse }: { cx: number; cy: number; label?: string; active?: boolean; pulse?: boolean }) {
   return (
     <g>
-      <circle cx={cx} cy={cy} r={8} fill="#1e293b" stroke="#6366f1" strokeWidth={1.5} />
-      <circle cx={cx} cy={cy} r={8} fill="none" stroke="#a78bfa" strokeWidth={0.5}>
-        {pulse && <animate attributeName="r" values="8;14;8" dur="1.5s" repeatCount="indefinite" />}
+      <circle cx={cx} cy={cy} r={8} fill={active ? "#6366f1" : "#1e293b"} stroke={active ? "#a78bfa" : "#6366f1"} strokeWidth={1.5}>
+        {active && <animate attributeName="fill" values="#6366f1;#818cf8;#6366f1" dur="1s" repeatCount="indefinite" />}
       </circle>
       {pulse && (
         <circle cx={cx} cy={cy} r={8} fill="none" stroke="#c084fc" strokeWidth={0.3}>
@@ -36,22 +49,9 @@ function Neuron({ cx, cy, label, pulse }: { cx: number; cy: number; label?: stri
   );
 }
 
-function PulseDot({ x1, y1, x2, y2, delay, color = "#6366f1" }: { x1: number; y1: number; x2: number; y2: number; delay: number; color?: string }) {
-  return (
-    <circle r={2.5} fill={color}>
-      <animateMotion
-        dur="2.5s"
-        repeatCount="indefinite"
-        begin={`${delay}s`}
-        path={`M${x1},${y1} L${x2},${y2}`}
-      />
-      <animate attributeName="opacity" values="1;0.3;1" dur="2.5s" repeatCount="indefinite" begin={`${delay}s`} />
-    </circle>
-  );
-}
-
 export function ModelViz({ mlModel }: ModelVizProps) {
   const [open, setOpen] = useState(false);
+  const [live, setLive] = useState<LivePrediction | null>(null);
   const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
@@ -59,6 +59,20 @@ export function ModelViz({ mlModel }: ModelVizProps) {
     const t = setTimeout(() => setPulse(true), 300);
     return () => clearTimeout(t);
   }, [open]);
+
+  const fetchLive = useCallback(async () => {
+    try {
+      const data = await api.getModelPredictLive();
+      setLive(data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchLive();
+    const id = setInterval(fetchLive, 5000);
+    return () => clearInterval(id);
+  }, [open, fetchLive]);
 
   const W = 420;
   const H = 280;
@@ -69,18 +83,19 @@ export function ModelViz({ mlModel }: ModelVizProps) {
   const hidGap = H / (HIDDEN_NEURONS + 1);
   const outGap = H / (OUTPUT_NEURONS + 1);
 
-  const inputLabels = ["Price", "EMA Gap", "RSI", "Volatility", "Momentum"];
+  const coefs = live?.coefficients ?? [1, 1, 1, 1, 1];
+  const featVals = live?.prediction?.features ?? [];
+  const probWin = live?.prediction?.prob_win ?? 0.5;
+  const probLoss = live?.prediction?.prob_loss ?? 0.5;
+  const signal = live?.signal ?? 0;
+  const signalLabel = signal === 1 ? "BUY" : signal === -1 ? "SELL" : "HOLD";
 
   const conns = [];
   for (let i = 0; i < INPUT_NEURONS; i++) {
     for (let j = 0; j < HIDDEN_NEURONS; j++) {
-      conns.push({ x1: xIn, y1: inGap * (i + 1), x2: xHid, y2: hidGap * (j + 1), delay: (i + j) * 0.08 });
+      const w = Math.max(0.3, Math.abs(coefs[i] || 0) * 2.5);
+      conns.push({ x1: xIn, y1: inGap * (i + 1), x2: xHid, y2: hidGap * (j + 1), w });
     }
-  }
-  const conns2 = [];
-  for (let i = 0; i < HIDDEN_NEURONS; i++) {
-    conns2.push({ x1: xHid, y1: hidGap * (i + 1), x2: xOut, y2: outGap * 1, delay: i * 0.1 });
-    conns2.push({ x1: xHid, y1: hidGap * (i + 1), x2: xOut, y2: outGap * 2, delay: i * 0.1 + 0.05 });
   }
 
   return (
@@ -92,33 +107,35 @@ export function ModelViz({ mlModel }: ModelVizProps) {
         i
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[700px] bg-slate-950 border-slate-800 text-slate-100">
+        <DialogContent className="max-w-[750px] bg-slate-950 border-slate-800 text-slate-100">
           <DialogTitle className="text-lg font-semibold text-slate-100">Neural Network Model</DialogTitle>
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_240px] gap-4 mt-2">
+          <div className="flex items-center gap-2 mt-1 mb-2">
+            <span className="text-xs text-slate-500">Signal:</span>
+            <span className={`text-sm font-bold ${signal === 1 ? "text-emerald-400" : signal === -1 ? "text-red-400" : "text-slate-400"}`}>
+              {signalLabel}
+            </span>
+            <span className="text-xs text-slate-500 ml-2">Confidence:</span>
+            <span className="text-xs font-bold text-purple-400">{(live?.confidence ?? 0).toFixed(2)}</span>
+            <span className="text-xs text-green-400/60 ml-auto font-mono">Live</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4">
             <div className="bg-slate-900/60 rounded-xl p-2 flex items-center justify-center">
               <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[280px]">
                 <defs>
                   <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.1} />
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.05} />
                     <stop offset="100%" stopColor="#6366f1" stopOpacity={0.3} />
                   </linearGradient>
                 </defs>
                 {conns.map((c, i) => (
-                  <line key={`c1-${i}`} x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2} stroke="url(#lineGrad)" strokeWidth={0.6} />
-                ))}
-                {conns2.map((c, i) => (
-                  <line key={`c2-${i}`} x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2} stroke="url(#lineGrad)" strokeWidth={0.6} />
-                ))}
-                {pulse && conns.map((c, i) => (
-                  <PulseDot key={`p1-${i}`} x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2} delay={c.delay} />
-                ))}
-                {pulse && conns2.map((c, i) => (
-                  <PulseDot key={`p2-${i}`} x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2} delay={c.delay} color="#a78bfa" />
+                  <line key={`c-${i}`} x1={c.x1} y1={c.y1} x2={c.x2} y2={c.y2} stroke={coefs[i % 5] && Math.abs(coefs[i % 5]) > 0.3 ? "#818cf8" : "url(#lineGrad)"} strokeWidth={c.w} opacity={0.5 + c.w * 0.2} />
                 ))}
                 <g>
-                  {Array.from({ length: INPUT_NEURONS }).map((_, i) => (
-                    <Neuron key={`in-${i}`} cx={xIn} cy={inGap * (i + 1)} label={inputLabels[i]} pulse={pulse} />
-                  ))}
+                  {Array.from({ length: INPUT_NEURONS }).map((_, i) => {
+                    const val = featVals[i] ?? 0;
+                    const isActive = Math.abs(val) > 0.1;
+                    return <Neuron key={`in-${i}`} cx={xIn} cy={inGap * (i + 1)} label={FEATURE_NAMES[i]} active={isActive && pulse} pulse={pulse} />;
+                  })}
                 </g>
                 <g>
                   {Array.from({ length: HIDDEN_NEURONS }).map((_, i) => (
@@ -126,9 +143,14 @@ export function ModelViz({ mlModel }: ModelVizProps) {
                   ))}
                 </g>
                 <g>
-                  {Array.from({ length: OUTPUT_NEURONS }).map((_, i) => (
-                    <Neuron key={`out-${i}`} cx={xOut} cy={outGap * (i + 1)} label={i === 0 ? "Loss" : "Win"} pulse={pulse} />
-                  ))}
+                  <Neuron cx={xOut} cy={outGap * 1} label="Loss" active={probLoss > 0.55 && pulse} pulse={pulse} />
+                  <Neuron cx={xOut} cy={outGap * 2} label="Win" active={probWin > 0.55 && pulse} pulse={pulse} />
+                  <text x={xOut + 30} y={outGap * 1 + 4} fill={probLoss > 0.55 ? "#ef4444" : "#64748b"} fontSize={10} fontWeight="bold">
+                    {(probLoss * 100).toFixed(0)}%
+                  </text>
+                  <text x={xOut + 30} y={outGap * 2 + 4} fill={probWin > 0.55 ? "#22c55e" : "#64748b"} fontSize={10} fontWeight="bold">
+                    {(probWin * 100).toFixed(0)}%
+                  </text>
                 </g>
                 <text x={xIn} y={H - 6} textAnchor="middle" fill="#64748b" fontSize={8}>Input (5)</text>
                 <text x={xHid} y={H - 6} textAnchor="middle" fill="#64748b" fontSize={8}>Hidden (8)</text>
@@ -136,51 +158,66 @@ export function ModelViz({ mlModel }: ModelVizProps) {
               </svg>
             </div>
 
-            <div className="space-y-3">
-              <div className="bg-slate-900/60 rounded-xl p-3 space-y-2">
-                <h4 className="text-xs uppercase tracking-wider text-slate-500">Model Stats</h4>
-                <div className="space-y-1.5">
+            <div className="space-y-2">
+              <div className="bg-slate-900/60 rounded-xl p-3 space-y-1.5">
+                <h4 className="text-xs uppercase tracking-wider text-slate-500 mb-1.5">Live Feature Values</h4>
+                {FEATURE_NAMES.map((name, i) => {
+                  const val = featVals[i] ?? 0;
+                  const coef = coefs[i] ?? 0;
+                  return (
+                    <div key={name} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 capitalize">{name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-mono ${Math.abs(val) > 0.1 ? "text-emerald-300" : "text-slate-500"}`}>{val.toFixed(4)}</span>
+                        <span className="text-[10px] text-indigo-400 w-8 text-right font-mono">{(coef * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="bg-slate-900/60 rounded-xl p-3 space-y-1.5">
+                <h4 className="text-xs uppercase tracking-wider text-slate-500">Probabilities</h4>
+                <div className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Accuracy</span>
-                    <span className="text-emerald-400 font-semibold">{(mlModel.accuracy * 100).toFixed(1)}%</span>
+                    <span className="text-slate-400">Win</span>
+                    <span className="text-emerald-400 font-semibold">{(probWin * 100).toFixed(1)}%</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Improvement</span>
-                    <span className={`font-semibold ${mlModel.improvement >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {mlModel.improvement >= 0 ? "+" : ""}{(mlModel.improvement * 100).toFixed(1)}%
-                    </span>
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500" style={{ width: `${probWin * 100}%` }} />
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Training Trades</span>
-                    <span className="text-blue-400 font-semibold">{mlModel.trades_used}</span>
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-slate-400">Loss</span>
+                    <span className="text-red-400 font-semibold">{(probLoss * 100).toFixed(1)}%</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Available Trades</span>
-                    <span className="text-blue-400 font-semibold">{mlModel.trades_available}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Since Last Train</span>
-                    <span className="text-orange-400 font-semibold">{mlModel.trades_since_last}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Last Trained</span>
-                    <span className="text-slate-200 font-semibold">
-                      {mlModel.last_train_time ? new Date(mlModel.last_train_time * 1000).toLocaleString() : "Never"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Status</span>
-                    <span className="text-purple-400 font-semibold">{mlModel.training ? "Training..." : "Ready"}</span>
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-red-500 to-red-400 rounded-full transition-all duration-500" style={{ width: `${probLoss * 100}%` }} />
                   </div>
                 </div>
               </div>
 
               <div className="bg-slate-900/60 rounded-xl p-3">
-                <h4 className="text-xs uppercase tracking-wider text-slate-500 mb-2">Architecture</h4>
-                <div className="space-y-1 text-xs text-slate-400">
+                <h4 className="text-xs uppercase tracking-wider text-slate-500 mb-1.5">Connection Weights</h4>
+                <div className="flex flex-wrap gap-1">
+                  {FEATURE_NAMES.map((name, i) => {
+                    const strength = Math.abs(coefs[i] ?? 0);
+                    return (
+                      <div key={name} className="flex items-center gap-1 bg-slate-800/60 rounded px-1.5 py-0.5">
+                        <span className="text-[9px] text-slate-400">{name.slice(0, 4)}</span>
+                        <div className="w-8 h-1 rounded-full bg-slate-700 overflow-hidden">
+                          <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(100, strength * 100)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-slate-900/60 rounded-xl p-3">
+                <h4 className="text-xs uppercase tracking-wider text-slate-500 mb-1.5">Architecture</h4>
+                <div className="space-y-0.5 text-[10px] text-slate-400">
                   <p>Logistic Regression</p>
                   <p>5 features → 2 classes</p>
-                  <p>L2 regularization</p>
                   {mlModel.trained && <p className="text-emerald-400">Model loaded</p>}
                 </div>
               </div>

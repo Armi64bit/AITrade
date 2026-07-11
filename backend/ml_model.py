@@ -151,6 +151,12 @@ class MLModel:
             X = np.array([features])
             X_scaled = self.scaler.transform(X)
             prob = self.model.predict_proba(X_scaled)[0]
+            self._last_prediction = {
+                "features": [round(f, 4) for f in features],
+                "feature_names": ["price", "ema_gap", "rsi", "volatility", "momentum"],
+                "prob_win": round(float(prob[1]), 4),
+                "prob_loss": round(float(prob[0]), 4),
+            }
             if len(prob) < 2:
                 return 0, 0.0
             if prob[1] > 0.55:
@@ -159,7 +165,18 @@ class MLModel:
                 return -1, round(float(prob[0]), 2)
             return 0, round(float(max(prob)), 2)
         except Exception:
+            self._last_prediction = None
             return 0, 0.0
+
+    def get_coefficients(self):
+        if self.model is None:
+            return None
+        coefs = self.model.coef_[0]
+        max_abs = max(abs(c) for c in coefs) if len(coefs) > 0 else 1
+        return [round(float(c / max_abs), 3) for c in coefs]
+
+    def get_last_prediction(self):
+        return getattr(self, "_last_prediction", None)
 
     def get_info(self):
         db = SessionLocal()
@@ -174,6 +191,7 @@ class MLModel:
             "accuracy": round(self._last_accuracy, 3) if self._last_accuracy else 0,
             "improvement": round(self._last_improvement, 3),
             "training": self._training,
+            "coefficients": self.get_coefficients(),
         }
 
 
