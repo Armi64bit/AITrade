@@ -8,7 +8,7 @@ import { SymbolSelector } from "./components/SymbolSelector";
 import { TradeLog } from "./components/TradeLog";
 import { AIInsights } from "./components/AIInsights";
 // import { MarketNews } from "./components/MarketNews";
-import { StrategyVotes } from "./components/StrategyVotes";
+import { DecisionBoard } from "./components/DecisionBoard";
 import { RightSidebar } from "./components/RightSidebar";
 import { StrategyHistory } from "./components/StrategyHistory";
 import { DailyPerformance } from "./components/DailyPerformance";
@@ -353,7 +353,7 @@ export default function App() {
               <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
             </FadeContent>
             <FadeContent>
-              <StrategyVotes />
+              <DecisionBoard status={status} />
             </FadeContent>
           </div>
         </div>
