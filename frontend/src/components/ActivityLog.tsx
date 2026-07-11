@@ -43,6 +43,13 @@ export function ActivityLog() {
 
   useEffect(() => { setPage(0); }, [log.length]);
 
+  const handleDownloadCsv = () => {
+    const a = document.createElement("a");
+    a.href = api.downloadDailyCsv();
+    a.download = `aitrader_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
   if (loading) return null;
 
   const pages = Math.ceil(log.length / perPage);
@@ -50,6 +57,14 @@ export function ActivityLog() {
 
   return (
     <>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] uppercase tracking-wider text-slate-500">Session Events</span>
+        <button onClick={handleDownloadCsv}
+          className="text-[10px] text-cyan-400/70 hover:text-cyan-300 bg-cyan-400/5 hover:bg-cyan-400/10 px-2 py-0.5 rounded transition-colors cursor-pointer"
+        >
+          ↓ CSV
+        </button>
+      </div>
       {log.length === 0 ? (
         <div className="text-center text-slate-500 text-xs py-4">No activity yet.</div>
       ) : (

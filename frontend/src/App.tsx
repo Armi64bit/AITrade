@@ -21,6 +21,7 @@ import FadeContent from "./components/FadeContent";
 import SpotlightCard from "./components/SpotlightCard";
 import { Mascot, type MascotMood } from "./components/Mascot";
 import LiquidChrome from "./components/LiquidChrome";
+import { DashboardGrid } from "./components/DashboardGrid";
 
 const LS_KEY = "aitrader_symbol";
 const LS_STRATEGY = "aitrader_strategy";
@@ -311,79 +312,32 @@ export default function App() {
           </header>
         </FadeContent>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr] mb-6">
-          <FadeContent>
-            <Dashboard perf={perf} />
-          </FadeContent>
-          <FadeContent>
-            {/* <MarketNews /> */}
-                            <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} buffs={lastBuffs} />
-
-          </FadeContent>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] xl:grid-cols-[minmax(0,2.2fr)_minmax(380px,1fr)] mb-6">
-          <div className="space-y-4 min-w-0">
-            <FadeContent>
-              <CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} />
-            </FadeContent>
-             <FadeContent>
-              <AIInsights onOptimize={handleOptimize} />
-            </FadeContent>
-            <FadeContent>
-              <TradeLog trades={trades} />
-            </FadeContent>
-           
-          </div>
-
-          <div className="space-y-4 min-w-0">
-            <FadeContent>
-              <RightSidebar
-                status={status}
-                symbol={symbol}
-                onStart={handleStart}
-                onStop={handleStop}
-                strategy={strategy}
-                onOptimize={handleOptimize}
-                optimizing={optimizing}
-              />
-            </FadeContent>
-        
-            <FadeContent>
-              <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
-            </FadeContent>
-            <FadeContent>
-              <DecisionBoard status={status} />
-            </FadeContent>
-          </div>
-        </div>
-
-        <FadeContent>
-          <div className="card mb-6 w-full min-w-0 overflow-hidden flex flex-col">
-            <div className="flex flex-wrap bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
-              {(["strategies", "daily"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }}
-                  className={`flex-1 min-w-[120px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                    historyTab === t
-                      ? "bg-slate-700 text-slate-100"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  {t === "strategies" ? "Strategies" : "Daily"}
-                </button>
-              ))}
-            </div>
-            <div className="max-h-[min(24rem,60vh)] overflow-y-auto pr-1">
-              {historyTab === "strategies" ? (
-                <StrategyHistory key="strategies" onActivate={handleActivateStrategy} />
-              ) : (
-                <DailyPerformance key="daily" trades={trades} />
-              )}
-            </div>
-          </div>
-        </FadeContent>
+        <DashboardGrid
+          widgets={[
+            { key: "dashboard", content: <FadeContent><Dashboard perf={perf} /></FadeContent>, minW: 4, minH: 2 },
+            { key: "mascot", content: <FadeContent><Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} buffs={lastBuffs} /></FadeContent>, minW: 3, minH: 2 },
+            { key: "chart", content: <FadeContent><CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} /></FadeContent>, minW: 4, minH: 4 },
+            { key: "ai-insights", content: <FadeContent><AIInsights onOptimize={handleOptimize} /></FadeContent>, minW: 3, minH: 3 },
+            { key: "trade-log", content: <FadeContent><TradeLog trades={trades} /></FadeContent>, minW: 3, minH: 3 },
+            { key: "sidebar", content: <FadeContent><RightSidebar status={status} symbol={symbol} onStart={handleStart} onStop={handleStop} strategy={strategy} onOptimize={handleOptimize} optimizing={optimizing} /></FadeContent>, minW: 3, minH: 4 },
+            { key: "activity", content: <FadeContent><SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog /></SpotlightCard></FadeContent>, minW: 3, minH: 3 },
+            { key: "decisions", content: <FadeContent><DecisionBoard status={status} /></FadeContent>, minW: 3, minH: 3 },
+            { key: "history", content: <FadeContent><div className="card w-full min-w-0 overflow-hidden flex flex-col"><div className="flex flex-wrap bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">{(["strategies", "daily"] as const).map((t) => (<button key={t} onClick={() => { setHistoryTab(t); localStorage.setItem("aitrader_history_tab", t); }} className={`flex-1 min-w-[120px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${historyTab === t ? "bg-slate-700 text-slate-100" : "text-slate-500 hover:text-slate-300"}`}>{t === "strategies" ? "Strategies" : "Daily"}</button>))}</div><div className="max-h-[min(24rem,60vh)] overflow-y-auto pr-1">{historyTab === "strategies" ? <StrategyHistory key="strategies" onActivate={handleActivateStrategy} /> : <DailyPerformance key="daily" trades={trades} />}</div></div></FadeContent>, minW: 6, minH: 4 },
+          ]}
+          defaultLayout={{
+            lg: [
+              { i: "dashboard", x: 0, y: 0, w: 7, h: 2 },
+              { i: "mascot", x: 7, y: 0, w: 5, h: 2 },
+              { i: "chart", x: 0, y: 2, w: 7, h: 4 },
+              { i: "ai-insights", x: 0, y: 6, w: 7, h: 3 },
+              { i: "trade-log", x: 0, y: 9, w: 7, h: 3 },
+              { i: "sidebar", x: 7, y: 2, w: 5, h: 4 },
+              { i: "activity", x: 7, y: 6, w: 5, h: 3 },
+              { i: "decisions", x: 7, y: 9, w: 5, h: 3 },
+              { i: "history", x: 0, y: 12, w: 12, h: 4 },
+            ],
+          }}
+        />
 
         {showStopDialog && (
           <StopDialog
