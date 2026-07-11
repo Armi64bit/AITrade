@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, type ReactNode } from "react";
-import GridLayout from "react-grid-layout";
+import { Responsive as ResponsiveGrid } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 
 interface Widget {
@@ -30,13 +30,9 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
 
   useEffect(() => { setMounted(true); }, []);
 
-  const handleLayoutChange = useCallback((newLayout: any) => {
-    setLayout((prev: any) => {
-      const merged = { ...prev };
-      merged.lg = newLayout;
-      localStorage.setItem(LS_KEY, JSON.stringify(merged));
-      return merged;
-    });
+  const handleLayoutChange = useCallback((_layout: any, layouts: any) => {
+    setLayout(layouts);
+    localStorage.setItem(LS_KEY, JSON.stringify(layouts));
   }, []);
 
   if (!mounted) {
@@ -50,7 +46,7 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
   }
 
   return (
-    <GridLayout
+    <ResponsiveGrid
       className={`layout ${className || ""}`}
       layouts={layout}
       breakpoints={{ lg: 1024, md: 768, sm: 0 }}
@@ -74,6 +70,6 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
           {w.content}
         </div>
       ))}
-    </GridLayout>
+    </ResponsiveGrid>
   );
 }
