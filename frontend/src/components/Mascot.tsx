@@ -1,5 +1,6 @@
 import type { Performance } from "../api/client";
 import { money } from "../utils/currency";
+import { ModelViz } from "./ModelViz";
 
 export type MascotMood = "happy" | "sad" | "thinking" | "stressed" | "neutral";
 
@@ -50,7 +51,8 @@ export function Mascot({ mood, description, perf, mlModel, onTrain, training }: 
   const isGreen = perf?.total_pnl !== undefined && perf?.total_pnl >= 0;
 
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 p-3 shadow-[0_18px_55px_rgba(0,0,0,0.25)] flex flex-col h-full">
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 p-3 shadow-[0_18px_55px_rgba(0,0,0,0.25)] flex flex-col h-full relative">
+      {mlModel && <ModelViz mlModel={mlModel} />}
       <div className="flex gap-3 flex-1">
         <div className="flex flex-col flex-shrink-0">
           <div className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-br ${config.tone} p-2 shadow-[0_10px_40px_rgba(0,0,0,0.2)] overflow-hidden w-24 h-24`}>
