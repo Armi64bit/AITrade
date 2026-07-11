@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import type { Trade } from "../api/client";
 import { CryptoIcon } from "./CryptoIcon";
 import { money, pct } from "../utils/currency";
