@@ -1,16 +1,11 @@
 import asyncio
 import json
 import time
-import os
-import csv
-import io
 import urllib.request
 import numpy as np
-from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN, BETTERSTACK_HOST
 from trader import BinanceTrader
@@ -108,87 +103,6 @@ def _format_news_for_ai() -> str:
         return ""
 
 
-DAILY_LOG_DIR = os.getenv("DAILY_LOG_DIR", "/app/data/daily_logs")
-
-
-def _generate_daily_csv() -> str:
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    output = io.StringIO()
-    w = csv.writer(output)
-    w.writerow(["AiTrader Daily Export", datetime.now(timezone.utc).isoformat()])
-    w.writerow([])
-
-    # ── Trades ──
-    w.writerow(["=== TRADES ==="])
-    w.writerow(["id", "symbol", "side", "entry_price", "exit_price", "quantity",
-                 "pnl", "pnl_pct", "entry_time", "exit_time", "status",
-                 "reasoning"])
-    db = SessionLocal()
-    trades = db.query(Trade).filter(Trade.entry_time >= today_start).order_by(Trade.id).all()
-    for t in trades:
-        w.writerow([
-            t.id, t.symbol, t.side, t.entry_price, t.exit_price, t.quantity,
-            t.pnl, t.pnl_pct,
-            t.entry_time.isoformat() if t.entry_time else "",
-            t.exit_time.isoformat() if t.exit_time else "",
-            t.status,
-            json.dumps(t.market_conditions) if t.market_conditions else "",
-        ])
-    w.writerow([])
-
-    # ── Activity Log ──
-    w.writerow(["=== ACTIVITY LOG ==="])
-    w.writerow(["time", "type", "message"])
-    if trader:
-        for e in trader._activity_log:
-            et = e.get("time", "")
-            try:
-                et_parsed = datetime.fromisoformat(et)
-                if et_parsed < today_start:
-                    continue
-            except:
-                pass
-            w.writerow([e.get("time", ""), e.get("type", ""), e.get("message", "")])
-    w.writerow([])
-
-    # ── Performance Summary ──
-    closed = [t for t in trades if t.status == "closed"]
-    wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
-    losses = sum(1 for t in closed if t.pnl and t.pnl <= 0)
-    total_pnl = sum(t.pnl for t in closed if t.pnl)
-    win_rate = wins / len(closed) if closed else 0
-    w.writerow(["=== SUMMARY ==="])
-    w.writerow(["total_trades", len(closed)])
-    w.writerow(["wins", wins])
-    w.writerow(["losses", losses])
-    w.writerow(["win_rate", f"{win_rate:.2%}"])
-    w.writerow(["total_pnl", f"{total_pnl:.2f}"])
-    w.writerow(["balance", f"{trader._balance:.2f}" if trader else "N/A"])
-    db.close()
-    return output.getvalue()
-
-
-async def daily_csv_background():
-    last_export_date = None
-    while True:
-        now = datetime.now(timezone.utc)
-        today_str = now.strftime("%Y-%m-%d")
-        if last_export_date != today_str and now.hour == 0 and now.minute == 0:
-            last_export_date = today_str
-            try:
-                csv_content = await asyncio.to_thread(_generate_daily_csv)
-                os.makedirs(DAILY_LOG_DIR, exist_ok=True)
-                path = os.path.join(DAILY_LOG_DIR, f"aitrader_{today_str}.csv")
-                with open(path, "w", newline="") as f:
-                    f.write(csv_content)
-                print(f"Daily CSV exported: {path}")
-                if trader:
-                    trader._log_event("export", f"Daily CSV saved to {path}")
-            except Exception as e:
-                print(f"Daily CSV export error: {e}")
-        await asyncio.sleep(60)
-
-
 trader = None
 
 
@@ -206,7 +120,6 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(trader.load_data())
     if BETTERSTACK_TOKEN and BETTERSTACK_HOST:
         asyncio.create_task(push_to_betterstack())
-    asyncio.create_task(daily_csv_background())
     yield
     if trader:
         trader.stop()
@@ -261,17 +174,6 @@ async def model_predict_live():
         "prediction": ml_model.get_last_prediction(),
         "coefficients": ml_model.get_coefficients(),
     }
-
-
-@app.get("/api/export/daily-csv")
-async def export_daily_csv():
-    csv_content = _generate_daily_csv()
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    return StreamingResponse(
-        iter([csv_content]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=aitrader_{today_str}.csv"},
-    )
 
 
 @app.post("/api/start")

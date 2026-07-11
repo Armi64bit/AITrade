@@ -106,5 +106,4 @@ export const api = {
   getModelStatus: () => get<{ trained: boolean; last_train_time: number | null; trades_used: number; accuracy: number; improvement: number; training: boolean }>("/model/status"),
   getModelPredictLive: () => get<{ signal: number; confidence: number; coefficients: number[] | null; prediction: { features: number[]; feature_names: string[]; prob_win: number; prob_loss: number } | null }>("/model/predict-live"),
   getStrategyVotes: () => get<{ votes: { name: string; signal: number; confidence: number; weight: number }[]; tracking: Record<string, { wins: number; losses: number; trades: number }> }>("/strategy-votes"),
-  downloadDailyCsv: () => `${BASE}/export/daily-csv`,
 };

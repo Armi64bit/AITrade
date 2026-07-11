@@ -312,29 +312,13 @@ class BinanceTrader:
 
                 ml_signal, ml_conf = self._ml_predict()
                 ensemble_signal, ensemble_score = self.ensemble.aggregate(self.df)
-                last_votes = self.ensemble.get_last_votes()
-                buy_count = sum(1 for v in last_votes if v.signal == 1 and v.confidence > 0)
-                sell_count = sum(1 for v in last_votes if v.signal == -1 and v.confidence > 0)
+                buy_count = sum(1 for v in self.ensemble.get_last_votes() if v.signal == 1 and v.confidence > 0)
+                sell_count = sum(1 for v in self.ensemble.get_last_votes() if v.signal == -1 and v.confidence > 0)
                 score = max(ensemble_score, ml_conf) if ml_conf > 0 else ensemble_score
                 signal = 1 if buy_count > sell_count and ensemble_signal >= 0 else 0
                 if ml_signal == 1 and ml_conf > 0.5:
                     signal = 1
                 self._signal_confidences.append(score)
-                # Store reasoning for trade entry
-                self._entry_reasoning = {
-                    "votes": [{"name": v.name, "signal": v.signal, "confidence": v.confidence, "weight": v.weight} for v in last_votes],
-                    "ml_signal": ml_signal,
-                    "ml_confidence": ml_conf,
-                    "ensemble_signal": ensemble_signal,
-                    "ensemble_score": ensemble_score,
-                    "buy_votes": buy_count,
-                    "sell_votes": sell_count,
-                    "indicators": {
-                        "ema_short": self.get_indicators().get("ema_short"),
-                        "ema_long": self.get_indicators().get("ema_long"),
-                        "rsi": self.get_indicators().get("rsi"),
-                    },
-                }
 
                 if signal == 1 and self.position is None:
                     await self._open_trade(1, self.ensemble.weights)
@@ -409,14 +393,13 @@ class BinanceTrader:
             quantity = amount_usdt / price
             self._balance -= amount_usdt
 
-            reasoning = getattr(self, "_entry_reasoning", {})
             self.position = {
                 "side": "buy",
                 "entry_price": price,
                 "quantity": quantity,
                 "entry_time": datetime.now(timezone.utc),
                 "strategy_params": params,
-                "market_conditions": reasoning,
+                "market_conditions": {},
             }
 
             db = SessionLocal()
@@ -428,7 +411,6 @@ class BinanceTrader:
                 status="open",
                 strategy_params=params,
                 strategy_id=self._active_strategy_id,
-                market_conditions=reasoning,
             )
             db.add(trade)
             db.commit()
