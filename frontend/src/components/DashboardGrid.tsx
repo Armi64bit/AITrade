@@ -74,6 +74,8 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
       isResizable={cols >= 8}
       compactType="vertical"
       margin={[16, 16]}
+      measureBeforeMount
+      autoSize
     >
       {widgets.map((w) => (
         <div key={w.key} className="relative group min-h-[60px] overflow-hidden rounded-2xl">
