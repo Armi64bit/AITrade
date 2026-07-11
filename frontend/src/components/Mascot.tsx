@@ -12,7 +12,7 @@ interface MascotProps {
   mlModel?: { trained: boolean; accuracy: number; trades_used: number; trades_available: number; trades_since_last: number; last_train_time: number | null; improvement: number; training: boolean } | null;
   onTrain?: () => void;
   training?: boolean;
-  buffs?: TrainingBuffs | null;
+  buffs: TrainingBuffs | null;
 }
 
 const moodConfig: Record<MascotMood, { gifUrl: string; title: string; label: string; tone: string }> = {

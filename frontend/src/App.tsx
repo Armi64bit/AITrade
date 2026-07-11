@@ -15,7 +15,6 @@ import { DailyPerformance } from "./components/DailyPerformance";
 import { ActivityLog } from "./components/ActivityLog";
 import { StopDialog } from "./components/StopDialog";
 import type { TrainingBuffs } from "./components/BuffBar";
-import { BuffBar } from "./components/BuffBar";
 import { fetchTndRate, money, pct } from "./utils/currency";
 import Aurora from "./components/Aurora";
 import FadeContent from "./components/FadeContent";
