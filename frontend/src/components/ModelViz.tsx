@@ -74,8 +74,8 @@ export function ModelViz({ mlModel }: ModelVizProps) {
     return () => clearInterval(id);
   }, [open, fetchLive]);
 
-  const W = 420;
-  const H = 280;
+  const W = 500;
+  const H = 340;
   const xIn = 50;
   const xHid = 210;
   const xOut = 370;
@@ -107,7 +107,7 @@ export function ModelViz({ mlModel }: ModelVizProps) {
         i
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[750px] bg-slate-950 border-slate-800 text-slate-100">
+        <DialogContent className="!max-w-[900px] bg-slate-950 border-slate-800 text-slate-100">
           <DialogTitle className="text-lg font-semibold text-slate-100">Neural Network Model</DialogTitle>
           <div className="flex items-center gap-2 mt-1 mb-2">
             <span className="text-xs text-slate-500">Signal:</span>
@@ -120,7 +120,7 @@ export function ModelViz({ mlModel }: ModelVizProps) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4">
             <div className="bg-slate-900/60 rounded-xl p-2 flex items-center justify-center">
-              <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[280px]">
+              <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[400px]">
                 <defs>
                   <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#6366f1" stopOpacity={0.05} />
