@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 import RGL from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 
@@ -37,6 +37,8 @@ function useCols(): number {
 }
 
 export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGridProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
   const cols = useCols();
   const [mounted, setMounted] = useState(false);
   const [locked, setLocked] = useState(() => {
@@ -52,7 +54,24 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
     return defaultLayout;
   });
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    // Ensure default layout is applied on first mount if no saved layout
+    const hasSaved = localStorage.getItem(LS_KEY);
+    if (!hasSaved) {
+      setLayout(defaultLayout);
+    }
+  }, [defaultLayout]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const e of entries) setWidth(e.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const handleLayoutChange = useCallback((newLayout: any) => {
     if (!locked) {
@@ -67,9 +86,9 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
     localStorage.setItem(LS_LOCK_KEY, next ? "true" : "false");
   };
 
-  if (!mounted) {
+  if (!mounted || width === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" ref={containerRef}>
         {widgets.map((w) => (
           <div key={w.key} className="min-h-[100px]">{w.content}</div>
         ))}
@@ -78,7 +97,7 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={toggleLock}
         className="absolute top-0 right-0 z-20 px-2 py-0.5 text-[10px] font-mono rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors"
@@ -90,14 +109,13 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
         className={`layout ${className || ""}`}
         layout={layout}
         cols={cols}
+        width={width}
         rowHeight={cols >= 8 ? 120 : 100}
         onLayoutChange={handleLayoutChange}
         isDraggable={!locked}
         isResizable={!locked && cols >= 8}
         compactType="vertical"
         margin={[16, 16]}
-        measureBeforeMount
-        autoSize
       >
         {widgets.map((w) => (
           <div key={w.key} className="relative group min-h-[60px] overflow-hidden rounded-2xl">
