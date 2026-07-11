@@ -100,9 +100,8 @@ export default function App() {
   const mascotMood: MascotMood = (() => {
     if (optimizing) return "thinking";
     if (status?.consecutive_losses !== undefined && status.consecutive_losses >= 3) return "stressed";
-    if (perf?.total_pnl !== undefined && perf?.total_pnl !== null) {
-      if (perf.total_pnl > 0) return "happy";
-      if (perf.total_pnl < 0) return "sad";
+    if (latestTradeWon !== undefined && latestTradeClosed) {
+      return latestTradeWon ? "happy" : "sad";
     }
     if (status?.running && !status.position) return "thinking";
     return "neutral";
