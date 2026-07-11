@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import * as Dialog from "@base-ui/react/dialog";
-import { X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 
 const INPUT_NEURONS = 5;
 const HIDDEN_NEURONS = 8;
@@ -53,14 +52,12 @@ function PulseDot({ x1, y1, x2, y2, delay, color = "#6366f1" }: { x1: number; y1
 
 export function ModelViz({ mlModel }: ModelVizProps) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    setMounted(true);
+    if (!open) { setPulse(false); return; }
     const t = setTimeout(() => setPulse(true), 300);
-    return () => { clearTimeout(t); setMounted(false); setPulse(false); };
+    return () => clearTimeout(t);
   }, [open]);
 
   const W = 420;
@@ -89,21 +86,15 @@ export function ModelViz({ mlModel }: ModelVizProps) {
   return (
     <>
       <button onClick={() => setOpen(true)}
-        className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer text-[10px] font-bold"
+        className="absolute top-1 right-1 z-10 w-5 h-5 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer text-[10px] font-bold"
         title="Model visualization"
       >
         i
       </button>
-      <Dialog.Root open={open} onOpenChange={setOpen}>
-        <Dialog.Backdrop className="fixed inset-0 bg-black/60 z-50" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95vw] max-w-[700px] rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl outline-none max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <Dialog.Title className="text-lg font-semibold text-slate-100">Neural Network Model</Dialog.Title>
-            <Dialog.Close className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer">
-              <X size={18} />
-            </Dialog.Close>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_240px] gap-4">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[700px] bg-slate-950 border-slate-800 text-slate-100">
+          <DialogTitle className="text-lg font-semibold text-slate-100">Neural Network Model</DialogTitle>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_240px] gap-4 mt-2">
             <div className="bg-slate-900/60 rounded-xl p-2 flex items-center justify-center">
               <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-h-[280px]">
                 <defs>
@@ -195,8 +186,8 @@ export function ModelViz({ mlModel }: ModelVizProps) {
               </div>
             </div>
           </div>
-        </Dialog.Popup>
-      </Dialog.Root>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
