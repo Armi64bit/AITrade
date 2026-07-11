@@ -18,6 +18,7 @@ interface DashboardGridProps {
 }
 
 const LS_KEY = "aitrader_grid_layout";
+const LS_LOCK_KEY = "aitrader_grid_locked";
 
 function useCols(): number {
   const [cols, setCols] = useState(12);
@@ -38,6 +39,10 @@ function useCols(): number {
 export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGridProps) {
   const cols = useCols();
   const [mounted, setMounted] = useState(false);
+  const [locked, setLocked] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(LS_LOCK_KEY) !== "false";
+  });
   const [layout, setLayout] = useState(() => {
     if (typeof window === "undefined") return defaultLayout;
     try {
@@ -50,9 +55,17 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
   useEffect(() => { setMounted(true); }, []);
 
   const handleLayoutChange = useCallback((newLayout: any) => {
-    setLayout(newLayout);
-    localStorage.setItem(LS_KEY, JSON.stringify(newLayout));
-  }, []);
+    if (!locked) {
+      setLayout(newLayout);
+      localStorage.setItem(LS_KEY, JSON.stringify(newLayout));
+    }
+  }, [locked]);
+
+  const toggleLock = () => {
+    const next = !locked;
+    setLocked(next);
+    localStorage.setItem(LS_LOCK_KEY, next ? "true" : "false");
+  };
 
   if (!mounted) {
     return (
@@ -65,28 +78,38 @@ export function DashboardGrid({ widgets, defaultLayout, className }: DashboardGr
   }
 
   return (
-    <GridLayout
-      className={`layout ${className || ""}`}
-      layout={layout}
-      cols={cols}
-      rowHeight={cols >= 8 ? 120 : 100}
-      onLayoutChange={handleLayoutChange}
-      isResizable={cols >= 8}
-      compactType="vertical"
-      margin={[16, 16]}
-      measureBeforeMount
-      autoSize
-    >
-      {widgets.map((w) => (
-        <div key={w.key} className="relative group min-h-[60px] overflow-hidden rounded-2xl">
-          <div className="absolute top-0.5 left-0.5 z-10 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <span className="w-3 h-0.5 rounded bg-slate-600" />
-            <span className="w-3 h-0.5 rounded bg-slate-600" />
-            <span className="w-3 h-0.5 rounded bg-slate-600" />
+    <div className="relative">
+      <button
+        onClick={toggleLock}
+        className="absolute top-0 right-0 z-20 px-2 py-0.5 text-[10px] font-mono rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors"
+        title={locked ? "Unlock layout (drag/resize)" : "Lock layout"}
+      >
+        {locked ? "🔒 Locked" : "🔓 Unlocked"}
+      </button>
+      <GridLayout
+        className={`layout ${className || ""}`}
+        layout={layout}
+        cols={cols}
+        rowHeight={cols >= 8 ? 120 : 100}
+        onLayoutChange={handleLayoutChange}
+        isDraggable={!locked}
+        isResizable={!locked && cols >= 8}
+        compactType="vertical"
+        margin={[16, 16]}
+        measureBeforeMount
+        autoSize
+      >
+        {widgets.map((w) => (
+          <div key={w.key} className="relative group min-h-[60px] overflow-hidden rounded-2xl">
+            <div className="absolute top-0.5 left-0.5 z-10 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <span className="w-3 h-0.5 rounded bg-slate-600" />
+              <span className="w-3 h-0.5 rounded bg-slate-600" />
+              <span className="w-3 h-0.5 rounded bg-slate-600" />
+            </div>
+            {w.content}
           </div>
-          {w.content}
-        </div>
-      ))}
-    </GridLayout>
+        ))}
+      </GridLayout>
+    </div>
   );
 }
