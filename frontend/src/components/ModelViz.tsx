@@ -107,7 +107,7 @@ export function ModelViz({ mlModel }: ModelVizProps) {
         i
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="!max-w-[900px] bg-slate-950 border-slate-800 text-slate-100">
+        <DialogContent className="!max-w-[900px] bg-slate-950 border-slate-800 text-slate-100 overflow-y-auto max-h-[90vh]">
           <DialogTitle className="text-lg font-semibold text-slate-100">Neural Network Model</DialogTitle>
           <div className="flex items-center gap-2 mt-1 mb-2">
             <span className="text-xs text-slate-500">Signal:</span>
