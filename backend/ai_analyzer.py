@@ -1,6 +1,7 @@
 import json
 import re
-from config import OPENROUTER_API_KEY
+import urllib.request
+from config import OPENROUTER_API_KEY, SYMBOLS
 
 client = None
 MODEL = "openrouter/free"
@@ -59,6 +60,123 @@ def build_prompt(data: dict) -> str:
     lines.append("\nWhat is your trading signal? Output JSON only.")
 
     return "\n".join(line for line in lines if line)
+
+
+async def fetch_pair_data(symbol: str) -> dict:
+    """Fetch current market data for a pair from Binance"""
+    try:
+        sym = symbol.replace("/", "")
+        url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={sym}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        
+        # Also get klines for indicators
+        url2 = f"https://api.binance.com/api/v3/klines?symbol={sym}&interval=1h&limit=200"
+        req2 = urllib.request.Request(url2, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req2, timeout=5) as resp2:
+            klines = json.loads(resp2.read().decode())
+        
+        closes = [float(k[4]) for k in klines]
+        volumes = [float(k[5]) for k in klines]
+        highs = [float(k[2]) for k in klines]
+        lows = [float(k[3]) for k in klines]
+        
+        # Calculate basic indicators
+        import numpy as np
+        import pandas as pd
+        df = pd.DataFrame({"close": closes, "high": highs, "low": lows, "volume": volumes})
+        
+        ema_s = df["close"].ewm(span=7, adjust=False).mean().iloc[-1]
+        ema_l = df["close"].ewm(span=25, adjust=False).mean().iloc[-1]
+        
+        delta = df["close"].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_g = gain.rolling(14).mean()
+        avg_l = loss.rolling(14).mean()
+        rs = avg_g / avg_l.replace(0, np.nan)
+        rsi = 100 - (100 / (1 + rs))
+        
+        price_change_pct = float(data["priceChangePercent"])
+        volume = float(data["volume"])
+        
+        return {
+            "symbol": symbol,
+            "price": float(data["lastPrice"]),
+            "price_change_24h": price_change_pct,
+            "volume_24h": volume,
+            "rsi": float(rsi.iloc[-1]) if len(rsi) > 0 else 50,
+            "ema_short": float(ema_s),
+            "ema_long": float(ema_l),
+            "trend": "up" if closes[-1] > ema_s > ema_l else "down" if closes[-1] < ema_s < ema_l else "neutral",
+        }
+    except Exception as e:
+        print(f"Error fetching {symbol}: {e}")
+        return None
+
+
+async def recommend_best_pair(current_symbol: str, trader_performance: dict) -> str:
+    """Use AI to recommend the best pair to trade based on market conditions and performance"""
+    if not client:
+        return "SOL/USDT"  # default fallback
+    
+    # Fetch data for top pairs
+    pairs_data = []
+    for sym in SYMBOLS[:8]:  # Limit to top 8 to save API calls
+        if sym == current_symbol:
+            continue
+        data = await fetch_pair_data(sym)
+        if data:
+            pairs_data.append(data)
+    
+    if not pairs_data:
+        return current_symbol
+    
+    # Build prompt for AI
+    prompt = f"""Current pair: {current_symbol}
+Current performance: Win rate {trader_performance.get('win_rate', 0)*100:.0f}%, 
+Recent P&L: {trader_performance.get('recent_pnl', 0):+.2f}%, 
+Consecutive losses: {trader_performance.get('consecutive_losses', 0)}
+
+Available pairs with market data:
+"""
+    for p in pairs_data:
+        prompt += f"- {p['symbol']}: Price ${p['price']:,.2f} ({p['price_change_24h']:+.2f}%), RSI {p['rsi']:.0f}, Trend: {p['trend']}\n"
+    
+    prompt += """
+Which pair should we trade for the BEST opportunity right now? Consider:
+1. Strong trending pairs (up for longs)
+2. Not overbought (RSI < 70) 
+3. Good volume
+4. Different from current if current is losing
+
+Respond with ONLY the pair symbol (e.g., "ETH/USDT")"""
+    
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": "You are a crypto pair selector. Output ONLY the pair symbol."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=20,
+            temperature=0.3,
+            timeout=15,
+        )
+        if resp.choices and resp.choices[0].message.content:
+            suggested = resp.choices[0].message.content.strip().upper()
+            if "/" in suggested and suggested in SYMBOLS:
+                return suggested
+    except Exception as e:
+        print(f"AI pair recommendation error: {e}")
+    
+    # Fallback: pick best trending pair with RSI < 70
+    for p in pairs_data:
+        if p["trend"] == "up" and p["rsi"] < 70:
+            return p["symbol"]
+    
+    return current_symbol
 
 
 _analysis_cache = {"data_hash": None, "result": None}

@@ -24,6 +24,7 @@ class Ensemble:
         self.weights = {s.name: 1.0 for s in self.strategies}
         self._tracking = {s.name: {"wins": 0, "losses": 0, "trades": 0} for s in self.strategies}
         self._last_votes: list[StrategyVote] = []
+        self._strategy_params = {}
 
     def default_weights(self) -> dict:
         return {s.name: 1.0 for s in self.strategies}
@@ -32,18 +33,27 @@ class Ensemble:
         for k in self.weights:
             self.weights[k] = w.get(k, 1.0)
 
+    def update_strategy_params(self, params: dict):
+        """Update all strategies with optimized parameters"""
+        self._strategy_params = params
+        for s in self.strategies:
+            if hasattr(s, 'update_params'):
+                s.update_params(params)
+
     def get_signals(self, df) -> list[StrategyVote]:
         votes: list[StrategyVote] = []
         for s in self.strategies:
             try:
-                sig, conf = s.compute(df, s.default_params())
+                # Use optimized params if available, else defaults
+                params = self._strategy_params if self._strategy_params else s.default_params()
+                sig, conf = s.compute(df, params)
             except Exception:
                 sig, conf = 0, 0.0
             votes.append(StrategyVote(s.name, sig, conf, self.weights.get(s.name, 1.0)))
         self._last_votes = votes
         return votes
 
-    def aggregate(self, df, threshold: float = 0.10) -> tuple[int, float]:
+    def aggregate(self, df, threshold: float = 0.25) -> tuple[int, float]:
         votes = self.get_signals(df)
         total = 0.0
         weight_sum = 0.0

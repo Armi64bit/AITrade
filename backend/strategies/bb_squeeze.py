@@ -8,7 +8,12 @@ class BbSqueeze(BaseStrategy):
     def default_params(self) -> dict:
         return {"bb_period": 20, "bb_std": 2.0, "squeeze_threshold": 0.8}
 
+    def update_params(self, params: dict):
+        self._params = params
+
     def compute(self, df, params: dict):
+        if hasattr(self, '_params') and self._params:
+            params = self._params
         period = int(params.get("bb_period", 20))
         std = params.get("bb_std", 2.0)
         squeeze_thresh = params.get("squeeze_threshold", 0.8)
@@ -27,7 +32,7 @@ class BbSqueeze(BaseStrategy):
         last_lower = lower.iloc[-1]
         last_mid = sma.iloc[-1]
 
-        # Squeeze: bandwidth contracting → breakout imminent
+        # Squeeze: bandwidth contracting -> breakout imminent
         squeezing = last_bw < bandwidth.rolling(50).mean().iloc[-1] * squeeze_thresh if len(bandwidth) > 50 else False
 
         if squeezing:

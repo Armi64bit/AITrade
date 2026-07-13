@@ -8,7 +8,12 @@ class EmaCrossover(BaseStrategy):
     def default_params(self) -> dict:
         return {"ema_short": 7, "ema_long": 25, "rsi_period": 14, "rsi_overbought": 70, "rsi_oversold": 30}
 
+    def update_params(self, params: dict):
+        self._params = params
+
     def compute(self, df, params: dict):
+        if hasattr(self, '_params') and self._params:
+            params = self._params
         short = int(params.get("ema_short", 7))
         long = int(params.get("ema_long", 25))
         rsi_period = int(params.get("rsi_period", 14))

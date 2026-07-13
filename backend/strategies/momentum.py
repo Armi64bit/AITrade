@@ -8,7 +8,12 @@ class Momentum(BaseStrategy):
     def default_params(self) -> dict:
         return {"momentum_period": 10, "momentum_threshold": 0.02, "volume_ma_period": 20}
 
+    def update_params(self, params: dict):
+        self._params = params
+
     def compute(self, df, params: dict):
+        if hasattr(self, '_params') and self._params:
+            params = self._params
         period = int(params.get("momentum_period", 10))
         threshold = params.get("momentum_threshold", 0.02)
         vol_period = int(params.get("volume_ma_period", 20))

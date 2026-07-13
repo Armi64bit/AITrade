@@ -8,7 +8,12 @@ class RsiReversal(BaseStrategy):
     def default_params(self) -> dict:
         return {"rsi_period": 14, "oversold": 30, "overbought": 70}
 
+    def update_params(self, params: dict):
+        self._params = params
+
     def compute(self, df, params: dict):
+        if hasattr(self, '_params') and self._params:
+            params = self._params
         period = int(params.get("rsi_period", 14))
         oversold = params.get("oversold", 30)
         overbought = params.get("overbought", 70)

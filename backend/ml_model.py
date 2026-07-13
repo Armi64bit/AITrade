@@ -2,6 +2,7 @@ import json
 import os
 import pickle
 import numpy as np
+from datetime import datetime, timezone
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from models import SessionLocal, Trade
@@ -50,18 +51,7 @@ class MLModel:
     def _extract_features(self, df, idx=None):
         if idx is None:
             idx = len(df) - 1
-        close = df["close"].values
-        ema_s = df["close"].ewm(span=7, adjust=False).mean().values
-        ema_l = df["close"].ewm(span=25, adjust=False).mean().values
-        rsi = self._compute_rsi(df["close"].values, 14)
-        features = [
-            float(close[idx]),
-            float(ema_s[idx] / ema_l[idx] - 1) if ema_l[idx] != 0 else 0,
-            float(rsi[idx] / 100) if idx < len(rsi) else 0.5,
-            float(np.std(close[max(0, idx-20):idx+1]) / close[idx]) if close[idx] != 0 else 0,
-            float(close[idx] / close[max(0, idx-5)] - 1) if idx >= 5 else 0,
-        ]
-        return features
+        return self._extract_features_at_idx(df, idx)
 
     def _compute_rsi(self, prices, period=14):
         deltas = np.diff(prices)
@@ -85,26 +75,37 @@ class MLModel:
 
         X, y = [], []
         for t in trades:
-            if not t.entry_price or t.pnl is None:
+            if not t.entry_price or t.pnl is None or not t.entry_time:
                 continue
-            features = [
-                float(t.entry_price),
-                0.0,
-                0.5,
-                0.0,
-                0.0,
-            ]
-            if len(close_vals) > 20:
-                idx = len(close_vals) - 1
-                std = float(np.std(close_vals[max(0, idx-20):idx+1]) / close_vals[idx]) if close_vals[idx] != 0 else 0
-                features[3] = std
-                features[4] = float(close_vals[idx] / close_vals[max(0, idx-5)] - 1) if idx >= 5 else 0
+            # Find the candle index closest to entry time
+            entry_ts = int(t.entry_time.timestamp() * 1000) if t.entry_time.tzinfo else int(t.entry_time.replace(tzinfo=timezone.utc).timestamp() * 1000)
+            df_times = df["time"].values
+            idx = np.searchsorted(df_times, entry_ts, side="right") - 1
+            idx = max(0, min(idx, len(df) - 1))
+            
+            # Extract same features as _extract_features
+            features = self._extract_features_at_idx(df, idx)
             X.append(features)
             y.append(1 if t.pnl > 0 else 0)
 
         if len(X) < 5:
             return None, None
         return np.array(X), np.array(y)
+    
+    def _extract_features_at_idx(self, df, idx):
+        close = df["close"].values
+        ema_s = df["close"].ewm(span=7, adjust=False).mean().values
+        ema_l = df["close"].ewm(span=25, adjust=False).mean().values
+        rsi = self._compute_rsi(df["close"].values, 14)
+        
+        features = [
+            float(close[idx]),
+            float(ema_s[idx] / ema_l[idx] - 1) if ema_l[idx] != 0 else 0,
+            float(rsi[idx] / 100) if idx < len(rsi) else 0.5,
+            float(np.std(close[max(0, idx-20):idx+1]) / close[idx]) if close[idx] != 0 else 0,
+            float(close[idx] / close[max(0, idx-5)] - 1) if idx >= 5 else 0,
+        ]
+        return features
 
     def train(self, df):
         self._training = True
