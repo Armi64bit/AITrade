@@ -36,8 +36,7 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
-      "expo-status-bar"
+      "expo-router"
     ],
     "scheme": "aitrader",
     "extra": {
