@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createChart, CandlestickSeries, HistogramSeries, LineSeries, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type LineData, type Time, type SeriesMarker } from "lightweight-charts";
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type LineData, type Time, type SeriesMarker } from "lightweight-charts";
 import { api } from "../api/client";
 
 interface Candle {
@@ -29,7 +29,7 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const entryLineRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const signalLineRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const markersRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(null);
   const hasDataRef = useRef(false);
   const [prediction, setPrediction] = useState<PredictionSignal | null>(null);
 
@@ -65,6 +65,7 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
     chartRef.current = chart;
     seriesRef.current = candleSeries;
     volumeRef.current = volSeries;
+    markersRef.current = createSeriesMarkers(candleSeries);
 
     const handleResize = () => {
       if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
@@ -93,26 +94,24 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
     seriesRef.current.setData(candles);
     volumeRef.current.setData(volumes);
 
-    if (prediction && prediction.direction !== "hold" && prediction.signal !== 0) {
-      const lastTime = (data[data.length - 1].time / 1000) as Time;
-      const lastCandle = data[data.length - 1];
-      const markerPrice = prediction.direction === "buy"
-        ? lastCandle.low * 0.998
-        : lastCandle.high * 1.002;
-      const markerColor = prediction.direction === "buy" ? "#22c55e" : "#ef4444";
-      const markerText = prediction.direction === "buy" ? "▲ BUY" : "▼ SELL";
+    if (markersRef.current) {
+      if (prediction && prediction.direction !== "hold" && prediction.signal !== 0) {
+        const lastTime = (data[data.length - 1].time / 1000) as Time;
+        const markerColor = prediction.direction === "buy" ? "#22c55e" : "#ef4444";
+        const markerText = prediction.direction === "buy" ? "▲ BUY" : "▼ SELL";
 
-      const markers: SeriesMarker<Time>[] = [{
-        time: lastTime,
-        position: prediction.direction === "buy" ? "belowBar" : "aboveBar",
-        color: markerColor,
-        shape: prediction.direction === "buy" ? "arrowUp" : "arrowDown",
-        text: `${markerText} ${(prediction.confidence * 100).toFixed(0)}%`,
-        size: 1.5,
-      }];
-      seriesRef.current.setMarkers(markers);
-    } else {
-      seriesRef.current.setMarkers([]);
+        const markers: SeriesMarker<Time>[] = [{
+          time: lastTime,
+          position: prediction.direction === "buy" ? "belowBar" : "aboveBar",
+          color: markerColor,
+          shape: prediction.direction === "buy" ? "arrowUp" : "arrowDown",
+          text: `${markerText} ${(prediction.confidence * 100).toFixed(0)}%`,
+          size: 1.5,
+        }];
+        markersRef.current.setMarkers(markers);
+      } else {
+        markersRef.current.setMarkers([]);
+      }
     }
 
     if (!hasDataRef.current) {

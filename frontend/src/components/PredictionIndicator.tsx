@@ -49,7 +49,6 @@ export function PredictionIndicator() {
 
   const isBuy = pred.direction === "buy";
   const isSell = pred.direction === "sell";
-  const isHold = pred.direction === "hold";
 
   const arrowColor = isBuy ? "text-emerald-400" : isSell ? "text-red-400" : "text-slate-400";
   const arrowSymbol = isBuy ? "▲" : isSell ? "▼" : "◆";
