@@ -5,6 +5,7 @@ import urllib.request
 import numpy as np
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN, BETTERSTACK_HOST
@@ -129,19 +130,36 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    print(f"Unhandled exception on {request.method} {request.url}: {exc}")
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
+
+
 @app.get("/api/status")
 async def get_status():
-    if not trader:
-        return {"error": "Trader not initialized"}
-    status = await trader.get_status()
-    indicators = trader.get_indicators()
-    return {**status, "indicators": indicators, "ml_model": ml_model.get_info()}
+    try:
+        if not trader:
+            return {"error": "Trader not initialized"}
+        status = await trader.get_status()
+        indicators = trader.get_indicators()
+        return {**status, "indicators": indicators, "ml_model": ml_model.get_info()}
+    except Exception as e:
+        print(f"Status error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
 
 
 @app.post("/api/model/train")
@@ -163,62 +181,73 @@ async def train_model():
 
 @app.get("/api/model/status")
 async def model_status():
-    return ml_model.get_info()
+    try:
+        return ml_model.get_info()
+    except Exception as e:
+        print(f"Model status error: {e}")
+        return {"error": str(e)}
 
 
 @app.get("/api/model/predict-live")
 async def model_predict_live():
-    if not trader or (ml_model.logistic is None and ml_model.rf_clf is None):
-        return {"signal": 0, "confidence": 0.0, "prediction": None, "coefficients": None}
-    sig, conf, details = ml_model.predict(trader.df)
-    return {
-        "signal": sig,
-        "confidence": conf,
-        "prediction": ml_model.get_last_prediction(),
-        "coefficients": ml_model.get_coefficients(),
-        "feature_importance": ml_model.get_feature_importance(),
-    }
+    try:
+        if not trader or (ml_model.logistic is None and ml_model.rf_clf is None):
+            return {"signal": 0, "confidence": 0.0, "prediction": None, "coefficients": None}
+        sig, conf, details = ml_model.predict(trader.df)
+        return {
+            "signal": sig,
+            "confidence": conf,
+            "prediction": ml_model.get_last_prediction(),
+            "coefficients": ml_model.get_coefficients(),
+            "feature_importance": ml_model.get_feature_importance(),
+        }
+    except Exception as e:
+        print(f"Predict live error: {e}")
+        return {"signal": 0, "confidence": 0.0, "prediction": None}
 
 
 @app.get("/api/model/predict-signal")
 async def model_predict_signal():
-    """Enhanced prediction endpoint for UI indicators"""
-    if not trader:
+    try:
+        if not trader:
+            return {
+                "signal": 0,
+                "direction": "hold",
+                "confidence": 0.0,
+                "prob_win": 0.0,
+                "prob_loss": 0.0,
+                "adaptive_threshold": 0.55,
+                "model_ready": False,
+                "ensemble_conviction": 0.0,
+                "trend": 0,
+            }
+        sig, conf, details = ml_model.predict(trader.df)
+        pred = ml_model.get_last_prediction()
+        prob_win = pred.get("prob_win", 0.5) if pred else 0.5
+        prob_loss = pred.get("prob_loss", 0.5) if pred else 0.5
+        adaptive_threshold = pred.get("adaptive_threshold", 0.55) if pred else 0.55
+        model_agreement = pred.get("model_agreement", "unknown") if pred else "unknown"
+
+        direction = "buy" if sig == 1 else ("sell" if sig == -1 else "hold")
+        trend = trader._get_trend()
+        conviction = trader.ensemble.get_conviction()
+
         return {
-            "signal": 0,
-            "direction": "hold",
-            "confidence": 0.0,
-            "prob_win": 0.0,
-            "prob_loss": 0.0,
-            "adaptive_threshold": 0.55,
-            "model_ready": False,
-            "ensemble_conviction": 0.0,
-            "trend": 0,
+            "signal": sig,
+            "direction": direction,
+            "confidence": conf,
+            "prob_win": prob_win,
+            "prob_loss": prob_loss,
+            "adaptive_threshold": adaptive_threshold,
+            "model_agreement": model_agreement,
+            "model_ready": ml_model.logistic is not None or ml_model.rf_clf is not None,
+            "ensemble_conviction": round(float(conviction), 4),
+            "trend": trend,
+            "feature_importance": ml_model.get_feature_importance(),
         }
-    sig, conf, details = ml_model.predict(trader.df)
-    pred = ml_model.get_last_prediction()
-    prob_win = pred.get("prob_win", 0.5) if pred else 0.5
-    prob_loss = pred.get("prob_loss", 0.5) if pred else 0.5
-    adaptive_threshold = pred.get("adaptive_threshold", 0.55) if pred else 0.55
-    model_agreement = pred.get("model_agreement", "unknown") if pred else "unknown"
-
-    direction = "buy" if sig == 1 else ("sell" if sig == -1 else "hold")
-    trend = trader._get_trend()
-    conviction = trader.ensemble.get_conviction()
-
-    return {
-        "signal": sig,
-        "direction": direction,
-        "confidence": conf,
-        "prob_win": prob_win,
-        "prob_loss": prob_loss,
-        "adaptive_threshold": adaptive_threshold,
-        "model_agreement": model_agreement,
-        "model_ready": ml_model.logistic is not None or ml_model.rf_clf is not None,
-        "ensemble_conviction": round(float(conviction), 4),
-        "trend": trend,
-        "feature_importance": ml_model.get_feature_importance(),
-    }
+    except Exception as e:
+        print(f"Predict signal error: {e}")
+        return {"signal": 0, "direction": "hold", "confidence": 0.0, "model_ready": False}
 
 
 @app.post("/api/start")
