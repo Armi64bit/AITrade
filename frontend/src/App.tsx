@@ -10,6 +10,7 @@ import { AIInsights } from "./components/AIInsights";
 // import { MarketNews } from "./components/MarketNews";
 import { DecisionBoard } from "./components/DecisionBoard";
 import { PredictionIndicator } from "./components/PredictionIndicator";
+import { SituationAssessment } from "./components/SituationAssessment";
 import { RightSidebar } from "./components/RightSidebar";
 import { StrategyHistory } from "./components/StrategyHistory";
 import { DailyPerformance } from "./components/DailyPerformance";
@@ -264,33 +265,16 @@ export default function App() {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.25)] h-full flex flex-col justify-between">
-                <div className="space-y-4 flex-1 min-h-0">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Latest trade</p>
-                    <p className="mt-2 text-xl font-semibold text-slate-100 tracking-tight">{latestTrade ? latestTradeLabel : "No trades yet"}</p>
-                  </div>
-
-                  {latestTrade ? (
-                    <div className="space-y-2">
-                      <p className={`text-lg ${latestTradeWon ? "text-emerald-400" : "text-red-400"}`}>{latestTradeResult}</p>
-                      <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">{latestTradeTime}</p>
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[6rem] items-center justify-center text-slate-500 text-sm">
-                      No trades have been recorded yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.25)] h-full flex flex-col justify-between">
-                <div className="space-y-4 flex-1">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Trading state</p>
-                    <p className={`mt-2 text-xl font-semibold tracking-tight ${currentPositionColor}`}>{currentPositionSummary}</p>
-                  </div>
-                  <p className="text-sm text-slate-400">This reflects the current position signal. If the bot is running and no position exists, it is searching for the next entry.</p>
-                </div>
+              <div className="lg:col-span-2">
+                <SituationAssessment
+                  status={status}
+                  perf={perf}
+                  latestTradeLabel={latestTradeLabel}
+                  latestTradeResult={latestTradeResult}
+                  latestTradeTime={latestTradeTime}
+                  latestTradeWon={latestTradeWon}
+                  latestTradeClosed={latestTradeClosed}
+                />
               </div>
               <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-4 shadow-[0_18px_55px_rgba(0,0,0,0.25)]">
                 <div className="space-y-4">
