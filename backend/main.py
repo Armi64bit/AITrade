@@ -7,14 +7,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, TRADE_CONFIG, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN, BETTERSTACK_HOST
+from config import BINANCE_API_KEY, BINANCE_SECRET_KEY, BINANCE_TESTNET, STRATEGY_DEFAULTS, SYMBOLS, BETTERSTACK_TOKEN, BETTERSTACK_HOST
 from trader import BinanceTrader
-from models import SessionLocal, Trade, StrategyState, Setting
+from models import SessionLocal, Trade, StrategyState
 from optimizer import run_optimization
 from ai_analyzer import generate_analysis
 from news_fetcher import fetch_news
 from ml_model import ml_model
-import pandas as pd
 
 
 _tnd_rate = 3.0
@@ -110,7 +109,7 @@ trader = None
 async def lifespan(app: FastAPI):
     global trader
     db = SessionLocal()
-    active = db.query(StrategyState).filter(StrategyState.is_active == True).first()
+    active = db.query(StrategyState).filter(StrategyState.is_active).first()
     if not active:
         record = StrategyState(params=STRATEGY_DEFAULTS, sharpe_ratio=None, is_active=True)
         db.add(record)
@@ -260,7 +259,7 @@ async def get_trades(limit: int = 50):
 @app.get("/api/strategy")
 async def get_strategy():
     db = SessionLocal()
-    state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
+    state = db.query(StrategyState).filter(StrategyState.is_active ).order_by(StrategyState.id.desc()).first()
     if state:
         closed = db.query(Trade).filter(Trade.status == "closed").all()
         wins = sum(1 for t in closed if t.pnl and t.pnl > 0)
@@ -307,7 +306,7 @@ async def activate_strategy(req: ActivateStrategyRequest):
     if not target:
         db.close()
         return {"error": "Strategy not found"}
-    old = db.query(StrategyState).filter(StrategyState.is_active == True).all()
+    old = db.query(StrategyState).filter(StrategyState.is_active ).all()
     for o in old:
         o.is_active = False
     target.is_active = True
@@ -333,7 +332,7 @@ async def optimize(req: OptimizeRequest):
 
     # Get current strategy's Sharpe before optimizing
     db = SessionLocal()
-    current_state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
+    current_state = db.query(StrategyState).filter(StrategyState.is_active ).order_by(StrategyState.id.desc()).first()
     current_sharpe = current_state.sharpe_ratio if current_state else None
     db.close()
 
@@ -348,7 +347,7 @@ async def optimize(req: OptimizeRequest):
         if current_sharpe is not None and sharpe <= current_sharpe:
             # Revert: deactivate new strategy, reactivate old one
             db = SessionLocal()
-            db.query(StrategyState).filter(StrategyState.is_active == True).update({"is_active": False})
+            db.query(StrategyState).filter(StrategyState.is_active ).update({"is_active": False})
             if current_state:
                 current_state.is_active = True
                 db.add(current_state)
@@ -597,7 +596,8 @@ async def ai_deep_analysis():
         analysis = await generate_analysis(market_data)
         return analysis
     except Exception as e:
-        import traceback; traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return {"analysis": f"⚠️ Exception: {e}"}
 
 
