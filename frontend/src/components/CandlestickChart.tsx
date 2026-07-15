@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createChart, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type CandlestickData, type HistogramData, type LineData, type Time, type SeriesMarker } from "lightweight-charts";
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, createSeriesMarkers, type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type CandlestickData, type HistogramData, type LineData, type Time, type SeriesMarker } from "lightweight-charts";
 import { api } from "../api/client";
 
 interface Candle {
@@ -29,7 +29,7 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const entryLineRef = useRef<ISeriesApi<"Line"> | null>(null);
-  const markersRef = useRef<ReturnType<typeof createSeriesMarkers> | null>(null);
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const hasDataRef = useRef(false);
   const [prediction, setPrediction] = useState<PredictionSignal | null>(null);
 
@@ -65,7 +65,7 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
     chartRef.current = chart;
     seriesRef.current = candleSeries;
     volumeRef.current = volSeries;
-    markersRef.current = createSeriesMarkers(candleSeries);
+    markersRef.current = createSeriesMarkers<Time>(candleSeries as ISeriesApi<"Candlestick", Time>);
 
     const handleResize = () => {
       if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
