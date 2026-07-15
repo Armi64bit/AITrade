@@ -47,8 +47,6 @@ export function SituationAssessment({ status, perf, latestTradeLabel, latestTrad
 
   const predDirection = prediction?.direction ?? "hold";
   const predConf = prediction?.confidence ?? 0;
-  const probWin = prediction?.prob_win ?? 0;
-  const probLoss = prediction?.prob_loss ?? 0;
   const trend = prediction?.trend ?? 0;
   const conviction = prediction?.ensemble_conviction ?? 0;
   const expPnl = prediction?.expected_pnl_pct;

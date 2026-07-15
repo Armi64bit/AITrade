@@ -63,7 +63,7 @@ export default function App() {
   }, trades[0]) : null;
 
   const latestTradeWon = latestTrade?.pnl != null && latestTrade.pnl >= 0;
-  const latestTradeClosed = latestTrade?.status === "closed" && latestTrade?.exit_time;
+  const latestTradeClosed = (latestTrade?.status === "closed" && latestTrade?.exit_time != null) ?? false;
   const latestTradeLabel = latestTrade
     ? latestTradeClosed
       ? `${latestTrade.side === "buy" ? "BUY" : "SELL"} ${latestTrade.symbol.replace("/USDT", "")}`
@@ -79,25 +79,6 @@ export default function App() {
   const latestTradeTime = latestTrade
     ? new Date(latestTradeClosed ? latestTrade.exit_time ?? latestTrade.entry_time : latestTrade.entry_time).toLocaleString()
     : null;
-
-  const currentPositionSummary = (() => {
-    const position = status?.position;
-    if (position) {
-      if (typeof position === "string") return position;
-      const side = (position.side ?? position.signal ?? "").toString().toUpperCase();
-      if (side === "BUY" || side === "SELL") {
-        return `${side} signal`;
-      }
-      if (position.side) {
-        return `${position.side.toString().toUpperCase()} position`;
-      }
-      return "Open position";
-    }
-    if (status?.running) return "Searching";
-    return "Stopped";
-  })();
-
-  const currentPositionColor = status?.position ? (typeof status.position === "object" && (status.position.side ?? status.position.signal)?.toString().toLowerCase() === "buy" ? "text-emerald-400" : "text-red-400") : "text-slate-100";
 
   const mascotMood: MascotMood = (() => {
     if (optimizing) return "thinking";
