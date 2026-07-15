@@ -153,8 +153,12 @@ async def train_model():
     df = trader.df
     if len(df) < 50:
         return {"status": "error", "message": "Need at least 50 candles of data"}
-    result = await asyncio.to_thread(ml_model.train, df)
-    return result
+    try:
+        result = await asyncio.wait_for(asyncio.to_thread(ml_model.train, df), timeout=90)
+        return result
+    except asyncio.TimeoutError:
+        ml_model._training = False
+        return {"status": "error", "message": "Training timed out after 90s"}
 
 
 @app.get("/api/model/status")

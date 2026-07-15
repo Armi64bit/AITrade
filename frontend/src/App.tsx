@@ -142,7 +142,7 @@ export default function App() {
     const snapWinRate = perf?.win_rate ?? 0;
     const snapBalance = perf?.current_balance ?? 0;
     const snapAcc = status?.ml_model?.accuracy ?? 0;
-    try { await api.trainModel(); } catch {}
+    try { await api.trainModel(); } catch { setTraining(false); return; }
     const [status2, perf2, ml2] = await Promise.all([api.getStatus(), api.getPerformance(), api.getModelStatus()]);
     setRestStatus(status2);
     setPerf(perf2);

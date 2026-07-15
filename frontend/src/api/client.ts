@@ -67,17 +67,30 @@ export interface Performance {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
-  return res.json();
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch(`${BASE}${path}`, { signal: controller.signal });
+    return res.json();
+  } finally {
+    clearTimeout(id);
+  }
 }
 
-async function post<T>(path: string, body?: any): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return res.json();
+async function post<T>(path: string, body?: any, timeoutMs = 30000): Promise<T> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    return res.json();
+  } finally {
+    clearTimeout(id);
+  }
 }
 
 export interface Candle {
@@ -107,7 +120,7 @@ export const api = {
   getTndRate: () => get<{ rate: number }>("/tnd-rate"),
   getActivityLog: () => get<{ time: string; type: string; message: string }[]>("/activity-log"),
   getNews: () => get<{ news: { title: string; source: string; url: string; published_at: number; summary: string }[] }>("/news"),
-  trainModel: () => post<{ status: string; trades_used?: number; accuracy?: number; improvement?: number; message?: string }>("/model/train"),
+  trainModel: () => post<{ status: string; trades_used?: number; accuracy?: number; improvement?: number; message?: string }>("/model/train", undefined, 120000),
   getModelStatus: () => get<{ trained: boolean; last_train_time: number | null; trades_used: number; accuracy: number; improvement: number; training: boolean; adaptive_threshold?: number; calibration_error?: number; oos_accuracy?: number; train_accuracy?: number }>("/model/status"),
   getModelPredictLive: () => get<{ signal: number; confidence: number; coefficients: number[] | null; prediction: { features: number[]; feature_names: string[]; prob_win: number; prob_loss: number } | null }>("/model/predict-live"),
   getModelPredictSignal: () => get<{
