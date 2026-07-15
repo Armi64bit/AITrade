@@ -19,7 +19,7 @@ import { StopDialog } from "./components/StopDialog";
 import type { TrainingBuffs } from "./components/BuffBar";
 import { fetchTndRate, money, pct } from "./utils/currency";
 import Aurora from "./components/Aurora";
-import FadeContent from "./components/FadeContent";
+
 import SpotlightCard from "./components/SpotlightCard";
 import { Mascot, type MascotMood } from "./components/Mascot";
 import LiquidChrome from "./components/LiquidChrome";
@@ -236,7 +236,6 @@ export default function App() {
         <Aurora />
       </div>
       <div className="mx-auto w-full max-w-screen-2xl px-4 py-4 sm:px-6 lg:px-10 xl:px-12 relative z-10">
-        <FadeContent>
           <header className="mb-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-3xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-xl shadow-purple-500/20">AI</div>
@@ -274,35 +273,22 @@ export default function App() {
               </div>
             </div>
           </header>
-        </FadeContent>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.7fr_1fr] mb-6">
-          <FadeContent>
             <Dashboard perf={perf} />
-          </FadeContent>
-          <FadeContent>
             {/* <MarketNews /> */}
                             <Mascot mood={mascotMood} perf={perf} mlModel={status?.ml_model ?? null} onTrain={handleTrain} training={training} buffs={lastBuffs} />
-
-          </FadeContent>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)] xl:grid-cols-[minmax(0,2.2fr)_minmax(380px,1fr)] mb-6">
           <div className="space-y-4 min-w-0">
-            <FadeContent>
               <CandlestickChart data={candles} entryPrice={latestTrade?.entry_price} />
-            </FadeContent>
-             <FadeContent>
               <AIInsights onOptimize={handleOptimize} />
-            </FadeContent>
-            <FadeContent>
               <TradeLog trades={trades} />
-            </FadeContent>
            
           </div>
 
           <div className="space-y-4 min-w-0">
-            <FadeContent>
               <RightSidebar
                 status={status}
                 symbol={symbol}
@@ -312,21 +298,12 @@ export default function App() {
                 onOptimize={handleOptimize}
                 optimizing={optimizing}
               />
-            </FadeContent>
-        
-            <FadeContent>
               <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
-            </FadeContent>
-            <FadeContent>
               <PredictionIndicator />
-            </FadeContent>
-            <FadeContent>
               <DecisionBoard status={status} />
-            </FadeContent>
           </div>
         </div>
 
-        <FadeContent>
           <div className="card mb-6 w-full min-w-0 overflow-hidden flex flex-col">
             <div className="flex flex-wrap bg-slate-800/40 rounded-lg p-0.5 gap-0.5 mb-4">
               {(["strategies", "daily"] as const).map((t) => (
@@ -351,7 +328,6 @@ export default function App() {
               )}
             </div>
           </div>
-        </FadeContent>
 
         {showStopDialog && (
           <StopDialog
