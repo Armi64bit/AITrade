@@ -49,21 +49,25 @@ class BinanceTrader:
         self._paper_mode = True
         self._total_trades = 0
         self._last_trade_time = 0
-        self._trade_cooldown = 120  # 2 hours cooldown between trades
-        # Restore balance from DB
+        self._trade_cooldown = 120
+        self._consecutive_losses = 0
+        self._last_optimize_time = 0
         saved = self._load_setting("balance", str(INITIAL_BALANCE))
         try:
             self._balance = float(saved)
         except:
             self._balance = INITIAL_BALANCE
-        # Restore ensemble state from DB
         ens_state = self._load_setting("ensemble_state", "")
         if ens_state:
             try:
                 self.ensemble.set_state(json.loads(ens_state))
             except:
                 pass
-        # Load active strategy params
+        cons = self._load_setting("consecutive_losses", "0")
+        try:
+            self._consecutive_losses = int(cons)
+        except:
+            self._consecutive_losses = 0
         self._strategy_params = {}
         asyncio.create_task(self._load_strategy_params())
 
@@ -152,9 +156,10 @@ class BinanceTrader:
             self._log_event("bot", "Bot stopped")
 
     def _ml_predict(self):
-        if ml_model is None or not ml_model.model:
-            return 0, 0.0
-        return ml_model.predict(self.df)
+        if ml_model is None:
+            return 0, 0.0, None
+        direction, conf, details = ml_model.predict(self.df)
+        return direction, conf, details
 
     async def _auto_optimize(self):
         now = time.time()
@@ -164,7 +169,6 @@ class BinanceTrader:
             return
         if now - self._last_optimize_time < 1800:
             return
-        # Composite check: optimize if performance is genuinely poor
         recent = list(self._recent_pnls)
         wins = sum(1 for p in recent if p > 0)
         win_rate = wins / len(recent)
@@ -184,7 +188,6 @@ class BinanceTrader:
         self._log_event("optimize", f"Auto-optimizing ({reason})")
         try:
             from optimizer import run_optimization
-            # Get current strategy's Sharpe and ID before optimizing
             db = SessionLocal()
             current_state = db.query(StrategyState).filter(StrategyState.is_active == True).order_by(StrategyState.id.desc()).first()
             current_sharpe = current_state.sharpe_ratio if current_state else None
@@ -194,9 +197,7 @@ class BinanceTrader:
             loop = asyncio.get_event_loop()
             best_params, sharpe = await loop.run_in_executor(self._executor, run_optimization, self.df, 200)
 
-            # Only accept if Sharpe improved or this is the first strategy
             if current_sharpe is not None and sharpe <= current_sharpe:
-                # Revert: deactivate the new strategy and reactivate the old one
                 db = SessionLocal()
                 db.query(StrategyState).filter(StrategyState.is_active == True).update({"is_active": False})
                 if current_id:
@@ -228,7 +229,7 @@ class BinanceTrader:
         self._log_event("model", "Auto-training ML model on 50 trades")
         result = await asyncio.to_thread(ml_model.train, self.df)
         if result.get("status") == "success":
-            self._log_event("model", f"ML model trained: accuracy {result['accuracy']}, improvement {result.get('improvement', 0):+.3f}")
+            self._log_event("model", f"ML model trained: accuracy {result['accuracy']}, improvement {result.get('improvement', 0):+.3f}, threshold {result.get('adaptive_threshold', 0.55)}")
         else:
             self._log_event("model", f"ML model training failed: {result.get('message')}")
 
@@ -254,7 +255,7 @@ class BinanceTrader:
         current_vol = float(self.df["close"].iloc[-20:].std() / self.df["close"].iloc[-1])
         recent_pnls = list(self._recent_pnls)
         recent_win_rate = sum(1 for p in recent_pnls if p > 0) / max(len(recent_pnls), 1) if recent_pnls else 0.5
-        performance_factor = recent_win_rate - 0.3  # positive if above 30% win rate
+        performance_factor = recent_win_rate - 0.3
         stat_score = current_vol * (1 - min(performance_factor, 0))
 
         best = self.symbol
@@ -271,13 +272,11 @@ class BinanceTrader:
 
         if best != self.symbol and best_score > stat_score * 1.3:
             self._pending_symbol = best
-        
-        # Also check AI recommendation periodically (every 50 ticks = ~50 min)
+
         if self._tick_count % 50 == 0 and self._total_trades > 10:
             await self._ai_recommend_pair_switch()
 
     async def _ai_recommend_pair_switch(self):
-        """Use AI to recommend a better pair to trade"""
         try:
             from ai_analyzer import recommend_best_pair
             performance = {
@@ -287,7 +286,6 @@ class BinanceTrader:
             }
             recommended = await recommend_best_pair(self.symbol, performance)
             if recommended != self.symbol and recommended in self._pair_scores:
-                # Boost the AI-recommended pair's score
                 self._pair_scores[recommended]["score"] += 0.5
                 self._log_event("ai_pair", f"AI recommends {recommended}, boosted score")
                 self.last_pair_switch_msg = f"🤖 AI recommends {recommended} — evaluating switch"
@@ -305,7 +303,6 @@ class BinanceTrader:
             return True
         except Exception as e:
             print(f"History load error via ccxt: {e}")
-        # Fallback: Binance public REST API (no exchange object needed)
         try:
             symbol = self.symbol.replace("/", "")
             url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=1h&limit=200"
@@ -324,6 +321,33 @@ class BinanceTrader:
             print(f"History load error via public API: {e2}")
             return False
 
+    def _get_adaptive_cooldown(self) -> int:
+        if self._consecutive_losses >= 5:
+            return 180
+        elif self._consecutive_losses >= 3:
+            return 150
+        elif self._consecutive_losses >= 1:
+            return 90
+        return 60
+
+    def _check_volume_confirmation(self) -> bool:
+        if len(self.df) < 20:
+            return True
+        volumes = self.df["volume"].values
+        current_vol = volumes[-1]
+        avg_vol = np.mean(volumes[-20:-1])
+        return current_vol >= avg_vol * 0.7
+
+    def _check_price_velocity(self) -> bool:
+        if len(self.df) < 10:
+            return True
+        closes = self.df["close"].values[-10:]
+        changes = np.diff(closes) / closes[:-1]
+        avg_change = np.mean(changes)
+        if avg_change > 0.015:
+            return False
+        return True
+
     async def _tick_loop(self):
         while self.running:
             try:
@@ -337,30 +361,39 @@ class BinanceTrader:
                 else:
                     await self._real_tick()
 
-                # Check trend filter - only trade in direction of trend
                 trend = self._get_trend()
-                
-                ml_signal, ml_conf = self._ml_predict()
+                self.ensemble.set_regime(trend)
+
+                ml_signal, ml_conf, ml_details = self._ml_predict()
+
                 ensemble_signal, ensemble_score = self.ensemble.aggregate(self.df)
                 buy_count = sum(1 for v in self.ensemble.get_last_votes() if v.signal == 1 and v.confidence > 0)
                 sell_count = sum(1 for v in self.ensemble.get_last_votes() if v.signal == -1 and v.confidence > 0)
+                conviction = self.ensemble.get_conviction()
+
                 score = max(ensemble_score, ml_conf) if ml_conf > 0 else ensemble_score
-                
-                # Only take buy signals in uptrend or neutral, avoid counter-trend
-                signal = 0
-                if trend >= 0:  # uptrend or neutral
-                    signal = 1 if buy_count > sell_count and ensemble_signal >= 0 else 0
-                    if ml_signal == 1 and ml_conf > 0.55:
-                        signal = 1
-                # In downtrend, don't open new longs
-                
                 self._signal_confidences.append(score)
 
-                # Check cooldown before opening new trade
+                signal = 0
+                signal_source = "none"
+
+                if trend >= 0:
+                    volume_ok = self._check_volume_confirmation()
+                    velocity_ok = self._check_price_velocity()
+
+                    if ml_signal == 1 and ml_conf > ml_model._adaptive_threshold and volume_ok:
+                        signal = 1
+                        signal_source = "ml"
+                    elif buy_count > sell_count and ensemble_signal >= 0 and volume_ok and velocity_ok:
+                        signal = 1
+                        signal_source = "ensemble"
+
                 now = time.time()
-                if signal == 1 and self.position is None and (now - self._last_trade_time) >= self._trade_cooldown:
-                    await self._open_trade(1, self._strategy_params)
+                adaptive_cooldown = self._get_adaptive_cooldown()
+                if signal == 1 and self.position is None and (now - self._last_trade_time) >= adaptive_cooldown:
+                    await self._open_trade(1, self._strategy_params, ml_conf, conviction)
                     self._last_trade_time = now
+                    self._log_event("signal", f"Entry signal: {signal_source} (ml:{ml_conf:.2f} ens:{ensemble_score:.2f} conv:{conviction:.2f})")
 
                 if self.position:
                     await self._check_exit(self.df)
@@ -371,25 +404,29 @@ class BinanceTrader:
                 await asyncio.sleep(10)
 
     def _get_trend(self) -> int:
-        """Returns 1 for uptrend, -1 for downtrend, 0 for neutral/choppy"""
         if len(self.df) < 50:
             return 0
         df = self.df
-        # Use 50-period EMA as trend filter
-        ema_50 = df["close"].ewm(span=50, adjust=False).mean()
-        ema_200 = df["close"].ewm(span=200, adjust=False).mean() if len(df) >= 200 else ema_50
-        
-        price = df["close"].iloc[-1]
-        ema50 = ema_50.iloc[-1]
-        ema200 = ema_200.iloc[-1]
-        
-        # Strong uptrend: price > EMA50 > EMA200
-        if price > ema50 > ema200:
+        close = df["close"].values
+        ema_20 = pd.Series(close).ewm(span=20, adjust=False).mean().values
+        ema_50 = pd.Series(close).ewm(span=50, adjust=False).mean().values
+        ema_100 = pd.Series(close).ewm(span=100, adjust=False).mean().values if len(df) >= 100 else ema_50
+
+        price = close[-1]
+        ema20 = ema_20[-1]
+        ema50 = ema_50[-1]
+        ema100 = ema_100[-1]
+
+        slope_20 = (ema_20[-1] - ema_20[-5]) / ema_20[-5] if len(ema_20) >= 5 else 0
+
+        if price > ema50 and slope_20 > 0:
             return 1
-        # Strong downtrend: price < EMA50 < EMA200
-        if price < ema50 < ema200:
+        if price < ema50 and slope_20 < 0:
             return -1
-        # Neutral/choppy
+        if price > ema20 > ema50:
+            return 1
+        if price < ema20 < ema50:
+            return -1
         return 0
 
     def _simulate_tick(self):
@@ -418,7 +455,6 @@ class BinanceTrader:
             return
         except Exception as e:
             print(f"Real tick via ccxt failed: {e}")
-        # Fallback: Binance public REST API
         try:
             symbol = self.symbol.replace("/", "")
             url = f"https://api.binance.com/api/v3/ticker?symbol={symbol}"
@@ -437,7 +473,7 @@ class BinanceTrader:
         if len(self.df) > 500:
             self.df = self.df.iloc[-500:]
 
-    async def _open_trade(self, signal, params):
+    async def _open_trade(self, signal, params, ml_conf=0.0, conviction=0.0):
         try:
             if not self._use_simulated:
                 ticker = await self.exchange.fetch_ticker(self.symbol)
@@ -446,31 +482,32 @@ class BinanceTrader:
                 price = self._sim_price
 
             balance = self._balance
-            
-            # ATR-based position sizing
+            confidence_factor = max(0.5, min(1.5, (ml_conf + abs(conviction)) / 0.6))
+
             atr = self._calculate_atr()
             if atr and atr > 0:
-                # Risk 1-2% of balance per trade, position size based on ATR
-                risk_pct = params.get("risk_pct", 0.02)  # 2% risk per trade
+                risk_pct = params.get("risk_pct", 0.02) * confidence_factor
                 atr_mult = params.get("atr_mult", 2.0)
                 stop_distance = atr * atr_mult
                 if stop_distance > 0:
                     qty_by_risk = (balance * risk_pct) / stop_distance
                     pct = params.get("position_size_pct", TRADE_CONFIG["position_size_pct"])
-                    qty_by_pct = (balance * pct) / price
-                    quantity = min(qty_by_risk, qty_by_pct)  # Use smaller of the two
+                    base_pct = min(pct * confidence_factor, pct * 1.5)
+                    qty_by_pct = (balance * base_pct) / price
+                    quantity = min(qty_by_risk, qty_by_pct)
                 else:
-                    quantity = (balance * params.get("position_size_pct", TRADE_CONFIG["position_size_pct"])) / price
+                    quantity = (balance * min(params.get("position_size_pct", TRADE_CONFIG["position_size_pct"]) * confidence_factor, TRADE_CONFIG["position_size_pct"] * 1.5)) / price
             else:
                 pct = params.get("position_size_pct", TRADE_CONFIG["position_size_pct"])
-                quantity = (balance * pct) / price
+                scaled_pct = min(pct * confidence_factor, pct * 1.5)
+                quantity = (balance * scaled_pct) / price
 
             amount_usdt = quantity * price
             if amount_usdt < 10:
                 return
+
             self._balance -= amount_usdt
 
-            # Store strategy-specific SL/TP
             sl_pct = params.get("stop_loss_pct", TRADE_CONFIG["stop_loss_pct"])
             tp_pct = params.get("take_profit_pct", TRADE_CONFIG["take_profit_pct"])
 
@@ -483,6 +520,8 @@ class BinanceTrader:
                 "stop_loss_pct": sl_pct,
                 "take_profit_pct": tp_pct,
                 "market_conditions": {},
+                "highest_price": price,
+                "trailing_activated": False,
             }
 
             db = SessionLocal()
@@ -503,13 +542,12 @@ class BinanceTrader:
             print(f"Open trade error: {e}")
 
     def _calculate_atr(self, period=14):
-        """Calculate Average True Range for position sizing"""
         if len(self.df) < period + 1:
             return None
         high = self.df["high"]
         low = self.df["low"]
         close = self.df["close"]
-        
+
         tr1 = high - low
         tr2 = abs(high - close.shift(1))
         tr3 = abs(low - close.shift(1))
@@ -526,15 +564,37 @@ class BinanceTrader:
 
         pnl_pct = (current_price - entry) / entry
 
+        highest = self.position.get("highest_price", entry)
+        if current_price > highest:
+            self.position["highest_price"] = current_price
+
         ticks_held = 0
         if entry_time:
             ticks_held = int((datetime.now(timezone.utc) - entry_time).total_seconds() / 60)
+
+        trailing_activated = self.position.get("trailing_activated", False)
+        highest_since_entry = self.position.get("highest_price", entry)
+
+        profit_pct = (current_price - entry) / entry
+        peak_profit = (highest_since_entry - entry) / entry
+
+        trailing_stop_pct = sl * 0.6
+
+        if not trailing_activated and peak_profit >= tp * 0.5:
+            trailing_activated = True
+            self.position["trailing_activated"] = True
+
+        if trailing_activated:
+            drawdown_from_peak = (highest_since_entry - current_price) / highest_since_entry
+            if drawdown_from_peak >= trailing_stop_pct:
+                await self._close_trade(current_price, pnl_pct)
+                return
 
         if pnl_pct <= -sl:
             await self._close_trade(current_price, pnl_pct)
         elif pnl_pct >= tp:
             await self._close_trade(current_price, pnl_pct)
-        elif ticks_held >= 2:
+        elif ticks_held >= 2 and not trailing_activated:
             signal, _ = self.ensemble.aggregate(df)
             if signal == -1:
                 await self._close_trade(current_price, pnl_pct)
@@ -559,6 +619,17 @@ class BinanceTrader:
 
             self._recent_pnls.append(pnl_pct)
             self._total_trades += 1
+
+            if pnl_pct < 0:
+                self._consecutive_losses += 1
+            else:
+                self._consecutive_losses = 0
+            self._save_setting("consecutive_losses", str(self._consecutive_losses))
+
+            if ml_model.get_last_prediction() is not None:
+                was_correct = pnl_pct > 0
+                ml_model.record_prediction_outcome(was_correct)
+
             asyncio.create_task(self._auto_optimize())
             if self._total_trades % 50 == 0 and not ml_model._training:
                 asyncio.create_task(self._auto_train())
@@ -584,7 +655,6 @@ class BinanceTrader:
         if state:
             self._strategy_params = state.params
             self._active_strategy_id = state.id
-            # Update ensemble strategies with optimized params
             self.ensemble.update_strategy_params(self._strategy_params)
             self._log_event("strategy", f"Loaded active strategy #{state.id} (Sharpe: {state.sharpe_ratio:.3f})")
         else:
@@ -601,7 +671,7 @@ class BinanceTrader:
             "balance_usdt": balance_usdt,
             "position": self.position,
             "total_trades": self._total_trades,
-            "consecutive_losses": sum(1 for p in self._recent_pnls if p < 0),
+            "consecutive_losses": self._consecutive_losses,
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
             "stop_after_trade": self.stop_after_trade,
             "last_pair_switch_msg": self.last_pair_switch_msg,
@@ -622,9 +692,17 @@ class BinanceTrader:
         avg_l = loss.rolling(14).mean()
         rs = avg_g / avg_l.replace(0, np.nan)
         rsi = 100 - (100 / (1 + rs))
+        bb_mid = df["close"].rolling(20).mean()
+        bb_std = df["close"].rolling(20).std()
+        bb_upper = bb_mid + 2 * bb_std
+        bb_lower = bb_mid - 2 * bb_std
+        current = df["close"].iloc[-1]
         return {
             "ema_short": float(ema_s.iloc[-1]),
             "ema_long": float(ema_l.iloc[-1]),
             "rsi": float(rsi.iloc[-1]),
-            "last_price": float(df["close"].iloc[-1]),
+            "last_price": float(current),
+            "bb_upper": float(bb_upper.iloc[-1]) if not pd.isna(bb_upper.iloc[-1]) else None,
+            "bb_lower": float(bb_lower.iloc[-1]) if not pd.isna(bb_lower.iloc[-1]) else None,
+            "bb_mid": float(bb_mid.iloc[-1]) if not pd.isna(bb_mid.iloc[-1]) else None,
         }

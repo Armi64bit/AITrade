@@ -9,6 +9,7 @@ import { TradeLog } from "./components/TradeLog";
 import { AIInsights } from "./components/AIInsights";
 // import { MarketNews } from "./components/MarketNews";
 import { DecisionBoard } from "./components/DecisionBoard";
+import { PredictionIndicator } from "./components/PredictionIndicator";
 import { RightSidebar } from "./components/RightSidebar";
 import { StrategyHistory } from "./components/StrategyHistory";
 import { DailyPerformance } from "./components/DailyPerformance";
@@ -350,6 +351,9 @@ export default function App() {
         
             <FadeContent>
               <SpotlightCard className="p-4 sm:p-6 md:p-8"><ActivityLog key="log" /></SpotlightCard>
+            </FadeContent>
+            <FadeContent>
+              <PredictionIndicator />
             </FadeContent>
             <FadeContent>
               <DecisionBoard status={status} />

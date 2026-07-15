@@ -165,14 +165,56 @@ async def model_status():
 
 @app.get("/api/model/predict-live")
 async def model_predict_live():
-    if not trader or not ml_model.model:
+    if not trader or (ml_model.logistic is None and ml_model.rf_clf is None):
         return {"signal": 0, "confidence": 0.0, "prediction": None, "coefficients": None}
-    sig, conf = ml_model.predict(trader.df)
+    sig, conf, details = ml_model.predict(trader.df)
     return {
         "signal": sig,
         "confidence": conf,
         "prediction": ml_model.get_last_prediction(),
         "coefficients": ml_model.get_coefficients(),
+        "feature_importance": ml_model.get_feature_importance(),
+    }
+
+
+@app.get("/api/model/predict-signal")
+async def model_predict_signal():
+    """Enhanced prediction endpoint for UI indicators"""
+    if not trader:
+        return {
+            "signal": 0,
+            "direction": "hold",
+            "confidence": 0.0,
+            "prob_win": 0.0,
+            "prob_loss": 0.0,
+            "adaptive_threshold": 0.55,
+            "model_ready": False,
+            "ensemble_conviction": 0.0,
+            "trend": 0,
+        }
+    sig, conf, details = ml_model.predict(trader.df)
+    pred = ml_model.get_last_prediction()
+    prob_win = pred.get("prob_win", 0.5) if pred else 0.5
+    prob_loss = pred.get("prob_loss", 0.5) if pred else 0.5
+    adaptive_threshold = pred.get("adaptive_threshold", 0.55) if pred else 0.55
+    model_agreement = pred.get("model_agreement", "unknown") if pred else "unknown"
+
+    direction = "buy" if sig == 1 else ("sell" if sig == -1 else "hold")
+    trend = trader._get_trend()
+    conviction = trader.ensemble.get_conviction()
+
+    return {
+        "signal": sig,
+        "direction": direction,
+        "confidence": conf,
+        "prob_win": prob_win,
+        "prob_loss": prob_loss,
+        "adaptive_threshold": adaptive_threshold,
+        "model_agreement": model_agreement,
+        "model_ready": ml_model.logistic is not None or ml_model.rf_clf is not None,
+        "ensemble_conviction": round(float(conviction), 4),
+        "trend": trend,
+        "feature_importance": ml_model.get_feature_importance(),
     }
 
 

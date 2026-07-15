@@ -17,6 +17,9 @@ export interface BotStatus {
     ema_long: number | null;
     rsi: number | null;
     last_price: number;
+    bb_upper?: number | null;
+    bb_lower?: number | null;
+    bb_mid?: number | null;
   };
   ml_model?: {
     trained: boolean;
@@ -27,6 +30,8 @@ export interface BotStatus {
     accuracy: number;
     improvement: number;
     training: boolean;
+    adaptive_threshold?: number;
+    calibration_error?: number;
   };
 }
 
@@ -103,7 +108,21 @@ export const api = {
   getActivityLog: () => get<{ time: string; type: string; message: string }[]>("/activity-log"),
   getNews: () => get<{ news: { title: string; source: string; url: string; published_at: number; summary: string }[] }>("/news"),
   trainModel: () => post<{ status: string; trades_used?: number; accuracy?: number; improvement?: number; message?: string }>("/model/train"),
-  getModelStatus: () => get<{ trained: boolean; last_train_time: number | null; trades_used: number; accuracy: number; improvement: number; training: boolean }>("/model/status"),
+  getModelStatus: () => get<{ trained: boolean; last_train_time: number | null; trades_used: number; accuracy: number; improvement: number; training: boolean; adaptive_threshold?: number; calibration_error?: number; oos_accuracy?: number; train_accuracy?: number }>("/model/status"),
   getModelPredictLive: () => get<{ signal: number; confidence: number; coefficients: number[] | null; prediction: { features: number[]; feature_names: string[]; prob_win: number; prob_loss: number } | null }>("/model/predict-live"),
+  getModelPredictSignal: () => get<{
+    signal: number;
+    direction: "buy" | "sell" | "hold";
+    confidence: number;
+    prob_win: number;
+    prob_loss: number;
+    adaptive_threshold: number;
+    model_agreement: string;
+    model_ready: boolean;
+    ensemble_conviction: number;
+    trend: number;
+    feature_importance: { name: string; importance: number }[] | null;
+    expected_pnl_pct?: number;
+  }>("/model/predict-signal"),
   getStrategyVotes: () => get<{ votes: { name: string; signal: number; confidence: number; weight: number }[]; tracking: Record<string, { wins: number; losses: number; trades: number }> }>("/strategy-votes"),
 };
