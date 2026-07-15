@@ -185,9 +185,6 @@ export function SituationAssessment({ status, perf, latestTradeLabel, latestTrad
     }
   }
 
-  const totalWins = perf?.wins ?? 0;
-  const totalLosses = perf?.losses ?? 0;
-
   return (
     <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.25)] h-full flex flex-col justify-between">
       <div className="space-y-3 flex-1">
