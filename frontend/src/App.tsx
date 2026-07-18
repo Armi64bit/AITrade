@@ -135,7 +135,7 @@ export default function App() {
     setChangingSymbol(false);
   };
 
-  const handleStart = async () => { await api.startBot(); };
+  const handleStart = async () => { try { await api.startBot(); await pollAll(); } catch {} };
 
   const handleTrain = async () => {
     setTraining(true);
@@ -175,6 +175,7 @@ export default function App() {
   const stopNow = async () => {
     setShowStopDialog(false);
     await api.stopBot("now");
+    await pollAll();
     if (pendingOptimize) {
       setPendingOptimize(false);
       await doOptimize();
@@ -184,6 +185,7 @@ export default function App() {
   const stopAfterTrade = async () => {
     setShowStopDialog(false);
     await api.stopBot("after_trade");
+    await pollAll();
     if (pendingOptimize) {
       setPendingOptimize(false);
       await doOptimize();
@@ -195,11 +197,11 @@ export default function App() {
     setPendingOptimize(false);
   };
 
-  const handleStop = () => {
+  const handleStop = async () => {
     if (status?.position) {
       setShowStopDialog(true);
     } else {
-      api.stopBot("now");
+      try { await api.stopBot("now"); await pollAll(); } catch {}
     }
   };
 
