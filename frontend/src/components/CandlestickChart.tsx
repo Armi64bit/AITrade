@@ -70,9 +70,12 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
     const handleResize = () => {
       if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
     };
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(containerRef.current);
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
+      ro.disconnect();
       chart.remove();
     };
   }, []);
@@ -80,14 +83,14 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
   useEffect(() => {
     if (!seriesRef.current || !volumeRef.current || data.length === 0) return;
     const candles: CandlestickData[] = data.map((d) => ({
-      time: (d.time / 1000) as Time,
+      time: Math.floor(d.time / 1000) as Time,
       open: d.open,
       high: d.high,
       low: d.low,
       close: d.close,
     }));
     const volumes: HistogramData[] = data.map((d) => ({
-      time: (d.time / 1000) as Time,
+      time: Math.floor(d.time / 1000) as Time,
       value: Math.abs(d.close - d.open) * 10 + 100,
       color: d.close >= d.open ? "#22c55e40" : "#ef444440",
     }));
@@ -96,7 +99,7 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
 
     if (markersRef.current) {
       if (prediction && prediction.direction !== "hold" && prediction.signal !== 0) {
-        const lastTime = (data[data.length - 1].time / 1000) as Time;
+        const lastTime = Math.floor(data[data.length - 1].time / 1000) as Time;
         const markerColor = prediction.direction === "buy" ? "#22c55e" : "#ef4444";
         const markerText = prediction.direction === "buy" ? "▲ BUY" : "▼ SELL";
 
@@ -127,9 +130,9 @@ export function CandlestickChart({ data, entryPrice }: { data: Candle[]; entryPr
       entryLineRef.current = null;
     }
     if (entryPrice == null) return;
-    const now = (Math.floor(Date.now() / 1000)) as Time;
+    const now = Math.floor(Date.now() / 1000) as Time;
     const lineData: LineData[] = data.length > 0
-      ? [{ time: (data[0].time / 1000) as Time, value: entryPrice }, { time: now, value: entryPrice }]
+      ? [{ time: Math.floor(data[0].time / 1000) as Time, value: entryPrice }, { time: now, value: entryPrice }]
       : [{ time: now, value: entryPrice }];
     entryLineRef.current = chartRef.current.addSeries(LineSeries, {
       color: "#f59e0b",
