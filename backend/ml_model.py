@@ -381,12 +381,16 @@ class MLModel:
     def get_coefficients(self):
         if self.logistic is None:
             return None
+        if not hasattr(self.logistic, "coef_") or self.logistic.coef_ is None:
+            return None
         coefs = self.logistic.coef_[0]
         max_abs = max(abs(c) for c in coefs) if len(coefs) > 0 else 1
         return [round(float(c / max_abs), 3) for c in coefs]
 
     def get_feature_importance(self):
         if self.rf_clf is None:
+            return None
+        if not hasattr(self.rf_clf, "feature_importances_") or self.rf_clf.feature_importances_ is None:
             return None
         importances = self.rf_clf.feature_importances_
         return [
@@ -398,9 +402,12 @@ class MLModel:
         return getattr(self, "_last_prediction", None)
 
     def get_info(self):
-        db = SessionLocal()
-        current_trades = db.query(Trade).filter(Trade.status == "closed").count()
-        db.close()
+        try:
+            db = SessionLocal()
+            current_trades = db.query(Trade).filter(Trade.status == "closed").count()
+            db.close()
+        except Exception:
+            current_trades = 0
         return {
             "trained": self._last_train_time is not None,
             "last_train_time": self._last_train_time,
