@@ -338,14 +338,18 @@ class BinanceTrader:
         avg_vol = np.mean(volumes[-20:-1])
         return current_vol >= avg_vol * 0.7
 
-    def _check_price_velocity(self) -> bool:
+    def _check_price_velocity(self, for_sell=False) -> bool:
         if len(self.df) < 10:
             return True
         closes = self.df["close"].values[-10:]
         changes = np.diff(closes) / closes[:-1]
         avg_change = np.mean(changes)
-        if avg_change > 0.015:
-            return False
+        if for_sell:
+            if avg_change < -0.015:
+                return False
+        else:
+            if avg_change > 0.015:
+                return False
         return True
 
     async def _tick_loop(self):
@@ -383,15 +387,26 @@ class BinanceTrader:
 
                     if ml_signal == 1 and ml_conf > ml_model._adaptive_threshold and volume_ok:
                         signal = 1
-                        signal_source = "ml"
+                        signal_source = "ml_buy"
                     elif buy_count > sell_count and ensemble_signal >= 0 and volume_ok and velocity_ok:
                         signal = 1
-                        signal_source = "ensemble"
+                        signal_source = "ensemble_buy"
+
+                if signal == 0 and trend <= 0:
+                    volume_ok = self._check_volume_confirmation()
+                    velocity_ok = self._check_price_velocity(for_sell=True)
+
+                    if ml_signal == -1 and ml_conf > ml_model._adaptive_threshold and volume_ok:
+                        signal = -1
+                        signal_source = "ml_sell"
+                    elif sell_count > buy_count and ensemble_signal <= 0 and volume_ok and velocity_ok:
+                        signal = -1
+                        signal_source = "ensemble_sell"
 
                 now = time.time()
                 adaptive_cooldown = self._get_adaptive_cooldown()
-                if signal == 1 and self.position is None and (now - self._last_trade_time) >= adaptive_cooldown:
-                    await self._open_trade(1, self._strategy_params, ml_conf, conviction)
+                if signal != 0 and self.position is None and (now - self._last_trade_time) >= adaptive_cooldown:
+                    await self._open_trade(signal, self._strategy_params, ml_conf, conviction)
                     self._last_trade_time = now
                     self._log_event("signal", f"Entry signal: {signal_source} (ml:{ml_conf:.2f} ens:{ensemble_score:.2f} conv:{conviction:.2f})")
 
@@ -475,6 +490,7 @@ class BinanceTrader:
 
     async def _open_trade(self, signal, params, ml_conf=0.0, conviction=0.0):
         try:
+            side = "buy" if signal == 1 else "sell"
             if not self._use_simulated:
                 ticker = await self.exchange.fetch_ticker(self.symbol)
                 price = ticker["last"]
@@ -506,13 +522,16 @@ class BinanceTrader:
             if amount_usdt < 10:
                 return
 
-            self._balance -= amount_usdt
+            if side == "sell":
+                self._balance += amount_usdt
+            else:
+                self._balance -= amount_usdt
 
             sl_pct = params.get("stop_loss_pct", TRADE_CONFIG["stop_loss_pct"])
             tp_pct = params.get("take_profit_pct", TRADE_CONFIG["take_profit_pct"])
 
             self.position = {
-                "side": "buy",
+                "side": side,
                 "entry_price": price,
                 "quantity": quantity,
                 "entry_time": datetime.now(timezone.utc),
@@ -527,7 +546,7 @@ class BinanceTrader:
             db = SessionLocal()
             trade = Trade(
                 symbol=self.symbol,
-                side="buy",
+                side=side,
                 entry_price=price,
                 quantity=quantity,
                 status="open",
@@ -559,24 +578,36 @@ class BinanceTrader:
         current_price = df["close"].iloc[-1]
         entry = self.position["entry_price"]
         entry_time = self.position.get("entry_time")
+        side = self.position.get("side", "buy")
         sl = self.position.get("stop_loss_pct", TRADE_CONFIG["stop_loss_pct"])
         tp = self.position.get("take_profit_pct", TRADE_CONFIG["take_profit_pct"])
 
-        pnl_pct = (current_price - entry) / entry
+        if side == "sell":
+            pnl_pct = (entry - current_price) / entry
+        else:
+            pnl_pct = (current_price - entry) / entry
 
-        highest = self.position.get("highest_price", entry)
-        if current_price > highest:
-            self.position["highest_price"] = current_price
+        extreme_price = self.position.get("highest_price", entry)
+        if side == "sell":
+            if current_price < extreme_price:
+                self.position["highest_price"] = current_price
+        else:
+            if current_price > extreme_price:
+                self.position["highest_price"] = current_price
 
         ticks_held = 0
         if entry_time:
             ticks_held = int((datetime.now(timezone.utc) - entry_time).total_seconds() / 60)
 
         trailing_activated = self.position.get("trailing_activated", False)
-        highest_since_entry = self.position.get("highest_price", entry)
+        extreme_since_entry = self.position.get("highest_price", entry)
 
-        profit_pct = (current_price - entry) / entry
-        peak_profit = (highest_since_entry - entry) / entry
+        if side == "sell":
+            profit_pct = (entry - current_price) / entry
+            peak_profit = (entry - extreme_since_entry) / entry
+        else:
+            profit_pct = (current_price - entry) / entry
+            peak_profit = (extreme_since_entry - entry) / entry
 
         trailing_stop_pct = sl * 0.6
 
@@ -585,10 +616,16 @@ class BinanceTrader:
             self.position["trailing_activated"] = True
 
         if trailing_activated:
-            drawdown_from_peak = (highest_since_entry - current_price) / highest_since_entry
-            if drawdown_from_peak >= trailing_stop_pct:
-                await self._close_trade(current_price, pnl_pct)
-                return
+            if side == "sell":
+                runup_from_extreme = (current_price - extreme_since_entry) / extreme_since_entry
+                if runup_from_extreme >= trailing_stop_pct:
+                    await self._close_trade(current_price, pnl_pct)
+                    return
+            else:
+                drawdown_from_peak = (extreme_since_entry - current_price) / extreme_since_entry
+                if drawdown_from_peak >= trailing_stop_pct:
+                    await self._close_trade(current_price, pnl_pct)
+                    return
 
         if pnl_pct <= -sl:
             await self._close_trade(current_price, pnl_pct)
@@ -596,17 +633,23 @@ class BinanceTrader:
             await self._close_trade(current_price, pnl_pct)
         elif ticks_held >= 2 and not trailing_activated:
             signal, _ = self.ensemble.aggregate(df)
-            if signal == -1:
+            if (side == "sell" and signal == 1) or (side == "buy" and signal == -1):
                 await self._close_trade(current_price, pnl_pct)
 
     async def _close_trade(self, exit_price, pnl_pct):
         try:
+            side = self.position.get("side", "buy")
+            qty = self.position["quantity"]
+            entry = self.position["entry_price"]
             db = SessionLocal()
             trade = db.query(Trade).filter(Trade.id == self._current_trade_db_id).first()
             if trade:
                 trade.exit_price = exit_price
-                trade.pnl = pnl_pct * self.position["quantity"] * self.position["entry_price"]
-                self._balance += trade.pnl + (self.position["quantity"] * self.position["entry_price"])
+                trade.pnl = pnl_pct * qty * entry
+                if side == "sell":
+                    self._balance -= qty * exit_price
+                else:
+                    self._balance += trade.pnl + (qty * entry)
                 trade.pnl_pct = pnl_pct
                 trade.exit_time = datetime.now(timezone.utc)
                 trade.status = "closed"
@@ -670,6 +713,7 @@ class BinanceTrader:
             "symbol": self.symbol,
             "balance_usdt": balance_usdt,
             "position": self.position,
+            "position_side": self.position["side"] if self.position else None,
             "total_trades": self._total_trades,
             "consecutive_losses": self._consecutive_losses,
             "last_price": self.df["close"].iloc[-1] if len(self.df) > 0 else None,
